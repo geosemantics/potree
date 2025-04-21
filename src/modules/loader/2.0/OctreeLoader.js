@@ -8,12 +8,47 @@ import { OctreeGeometry, OctreeGeometryNode } from "./OctreeGeometry.js";
 
 // let loadedNodes = new Set();
 
+/**
+ * Modify the value of a buffer attribute *on-the-fly*,
+ * based on the value of another attribute and a function.
+ * 
+ * The way thios works is, the base property and property buffers are retrieved
+ * from the buffers that the worker returns. Then, they are parsed into Float32Arrays.
+ * The arrays are then iterated over, and each value (i-th element) of the property's buffer is modified
+ * based on the value of the base property buffer(i-th element) and the function passed as argument.
+ *
+ * @param {Object} buffers: the buffers returned by the worker
+ * @param {*} property: the property to compute a derivative BufferAttribute for
+ * @param {*} baseProperty: the property to use as base for the modification
+ * @param {*} fn : the function to apply to the base property buffer value
+ * @returns {BufferAttribute} : the modified BufferAttribute, ready to be passed to THREE.BufferGeometry.setAttribute
+ * @example
+ * let modifiedAttribute = computeModifiedBufferAttribute(buffers, prop, otherProp, (value) => value * 2);
+ */
+function computeModifiedBufferAttribute(buffers, attribute, baseAttribute, fn) {
+  const attrBuffer = buffers[attribute].buffer;
+  const baseBuffer = buffers[baseAttribute].buffer;
+
+  const attrArray = new Float32Array(attrBuffer);
+  const baseArray = new Float32Array(baseBuffer);
+
+  const modifiedArray = new Float32Array(attrArray.length);
+  for (let i = 0; i < attrArray.length; i++) {
+    modifiedArray[i] = fn(baseArray[i]);
+  }
+
+  const modifiedBufferAttribute = new THREE.BufferAttribute(modifiedArray, 1);
+  return modifiedBufferAttribute;
+}
+
 export class NodeLoader {
   constructor(url) {
     this.url = url;
   }
 
   async load(node) {
+    // console.log(`loading node`,node);
+
     if (node.loaded || node.loading) {
       return;
     }
@@ -29,6 +64,7 @@ export class NodeLoader {
     // loadedNodes.add(node.name);
 
     try {
+      // Proxy Node: points to another chunk
       if (node.nodeType === 2) {
         await this.loadHierarchy(node);
       }
@@ -38,14 +74,15 @@ export class NodeLoader {
       let urlOctree = `${this.url}/../octree.bin`;
 
       let first = byteOffset;
-      let last = byteOffset + byteSize - 1n;
+      let last = byteOffset + byteSize - 1n; // 1n: verbosely use BigInt precision (num > regular Number)
 
       let buffer;
 
       if (byteSize === 0n) {
         buffer = new ArrayBuffer(0);
-        console.warn(`loaded node with 0 bytes: ${node.name}`);
+        // console.warn(`loaded node with 0 bytes: ${node.name}`);
       } else {
+        // console.log(`loading node ${node.name} (${byteSize} bytes)`, node);
         let response = await fetch(urlOctree, {
           headers: {
             "content-type": "multipart/byteranges",
@@ -74,12 +111,11 @@ export class NodeLoader {
         let geometry = new THREE.BufferGeometry();
 
         for (let property in buffers) {
-        //   console.log(property);
+          //   console.log(property);
 
           let buffer = buffers[property].buffer;
 
-
-		   if (property === "position") {
+          if (property === "position") {
             geometry.setAttribute(
               "position",
               new THREE.BufferAttribute(new Float32Array(buffer), 3)
@@ -102,21 +138,31 @@ export class NodeLoader {
             );
             bufferAttribute.normalized = true;
             geometry.setAttribute("indices", bufferAttribute);
-          } else {
-            const bufferAttribute = new THREE.BufferAttribute(
-              new Float32Array(buffer),
-              1
+          }
+          else {
+            // const bufferAttribute = new THREE.BufferAttribute(
+            //   new Float32Array(buffer),
+            //   1
+            // );
+
+            const modifiedBufferAttribute = computeModifiedBufferAttribute(
+              buffers,
+              property,
+              "classification",
+              (value) => {
+                return value * 2;
+              }
             );
 
             let batchAttribute = buffers[property].attribute;
-            bufferAttribute.potree = {
+            modifiedBufferAttribute.potree = {
               offset: buffers[property].offset,
               scale: buffers[property].scale,
               preciseBuffer: buffers[property].preciseBuffer,
               range: batchAttribute.range,
             };
 
-            geometry.setAttribute(property, bufferAttribute);
+            geometry.setAttribute(property, modifiedBufferAttribute);
           }
         }
         // indices ??
@@ -175,6 +221,8 @@ export class NodeLoader {
     let nodes = new Array(numNodes);
     nodes[0] = node;
     let nodePos = 1;
+
+    // console.log(`Will parse ${numNodes} nodes (bbg/bpn = ${buffer.byteLength}/${bytesPerNode})`);
 
     for (let i = 0; i < numNodes; i++) {
       let current = nodes[i];
@@ -239,6 +287,7 @@ export class NodeLoader {
 
         // nodes.push(child);
         nodes[nodePos] = child;
+        // console.log("Nodes", nodes.length, nodes)
         nodePos++;
       }
 
@@ -393,14 +442,14 @@ export class OctreeLoader {
   }
 
   static async load(url) {
-    console.log("loading octree", url);
+    // console.log("loading octree", url);
 
     let response = await fetch(url);
     let metadata = await response.json();
 
     let attributes = OctreeLoader.parseAttributes(metadata.attributes);
 
-    console.log("Ooctree loader | attrs:", attributes);
+    // console.log("Ooctree loader | attrs:", attributes);
 
     let loader = new NodeLoader(url);
     loader.metadata = metadata;
@@ -448,6 +497,7 @@ export class OctreeLoader {
 
     loader.load(root);
 
+    // console.log("octree", octree);
     let result = {
       geometry: octree,
     };

@@ -5,7 +5,7 @@ export class OctreeGeometry{
 
 	constructor(){
 		this.url = null;
-		this.spacing = 0;
+		this.spacing = 0; // float
 		this.boundingBox = null;
 		this.root = null;
 		this.pointAttributes = null;
