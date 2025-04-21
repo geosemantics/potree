@@ -140,29 +140,29 @@ export class NodeLoader {
             geometry.setAttribute("indices", bufferAttribute);
           }
           else {
-            // const bufferAttribute = new THREE.BufferAttribute(
-            //   new Float32Array(buffer),
-            //   1
-            // );
-
-            const modifiedBufferAttribute = computeModifiedBufferAttribute(
-              buffers,
-              property,
-              "classification",
-              (value) => {
-                return value * 2;
-              }
+            const bufferAttribute = new THREE.BufferAttribute(
+              new Float32Array(buffer),
+              1
             );
 
+            // const bufferAttribute = computeModifiedBufferAttribute(
+            //   buffers,
+            //   property,
+            //   "classification",
+            //   (value) => {
+            //     return value * 2;
+            //   }
+            // );
+
             let batchAttribute = buffers[property].attribute;
-            modifiedBufferAttribute.potree = {
+            bufferAttribute.potree = {
               offset: buffers[property].offset,
               scale: buffers[property].scale,
               preciseBuffer: buffers[property].preciseBuffer,
               range: batchAttribute.range,
             };
 
-            geometry.setAttribute(property, modifiedBufferAttribute);
+            geometry.setAttribute(property, bufferAttribute);
           }
         }
         // indices ??

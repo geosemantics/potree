@@ -101,7 +101,7 @@ export class PointCloudOctreeNode extends PointCloudTreeNode {
 };
 
 export class PointCloudOctree extends PointCloudTree {
-	constructor (geometry, material) {
+	constructor (geometry, material, priorities) {
 		super();
 
 		this.pointBudget = Infinity;
@@ -117,7 +117,7 @@ export class PointCloudOctree extends PointCloudTree {
 
 		{
 
-			let priorityQueue = ["rgba", "rgb", "intensity", "classification"];
+			let priorityQueue = priorities || ["rgba", "rgb", "intensity", "classification"];
 			let selected = "rgba";
 
 			for(let attributeName of priorityQueue){
@@ -799,6 +799,7 @@ export class PointCloudOctree extends PointCloudTree {
 			pickMaterial.uniforms.maxSize.value = this.material.uniforms.maxSize.value;
 			pickMaterial.classification = this.material.classification;
 			pickMaterial.recomputeClassification();
+			pickMaterial.recomputeSegmentation()
 
 			if(params.pickClipped){
 				pickMaterial.clipBoxes = this.material.clipBoxes;
