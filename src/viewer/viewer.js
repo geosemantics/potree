@@ -140,7 +140,7 @@ export class Viewer extends EventDispatcher{
 		this.description = "";
 
 		this.classifications = ClassificationScheme.DEFAULT;
-		this.segmentations = SegmentationScheme.RANDOM
+		this.segmentations = SegmentationScheme.DEFAULT
 
 		this.moveSpeed = 10;
 

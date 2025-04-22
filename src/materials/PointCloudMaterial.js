@@ -172,7 +172,7 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		};
 
 		this.classification = ClassificationScheme.DEFAULT;
-		this.segmentation = SegmentationScheme.RANDOM;
+		this.segmentation = SegmentationScheme.DEFAULT;
 
 		this.defaultAttributeValues.normal = [0, 0, 0];
 		this.defaultAttributeValues.classification = [0, 0, 0];
@@ -406,7 +406,7 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		}
 	}
 
-	setSegmentClass ( index, color, visible = true ) {
+	setSegmentColor ( index, color, visible = true ) {
 		if (this.classification[index] === undefined) {
 			this.classification[index] = {
 				color: color,
