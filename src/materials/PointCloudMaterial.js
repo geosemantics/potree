@@ -406,19 +406,19 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		}
 	}
 
-	setSegmentColor ( index, color, visible = true ) {
-		if (this.classification[index] === undefined) {
-			this.classification[index] = {
-				color: color,
-				visible: visible
-			};
-		}
-		else {
-			this.classification[index].color = color;
-			this.classification[index].visible = visible;
-		}
-		this.recomputeClassification();
-	}
+	// setSegmentColor ( index, color, visible = true ) {
+	// 	if (this.classification[index] === undefined) {
+	// 		this.classification[index] = {
+	// 			color: color,
+	// 			visible: visible
+	// 		};
+	// 	}
+	// 	else {
+	// 		this.classification[index].color = color;
+	// 		this.classification[index].visible = visible;
+	// 	}
+	// 	this.recomputeClassification();
+	// }
 
 	recomputeClassification () {
 		const classification = this.classification;
