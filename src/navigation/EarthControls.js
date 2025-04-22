@@ -146,7 +146,7 @@ export class EarthControls extends EventDispatcher {
 		};
 
 		let dblclick = (e) => {
-			this.zoomToLocation(e.mouse);
+			// this.zoomToLocation(e.mouse);
 		};
 
 		this.addEventListener('drag', drag);
