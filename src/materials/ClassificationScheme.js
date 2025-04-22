@@ -26,14 +26,14 @@ function getDefault() {
     scheme[i] = {
       visible: true,
       name: "Seg " + i,
-      color: getColorFromGradient(Math.random(), Gradients.VIRIDIS),
+      color: getColorFromGradient(Math.random(), Gradients.SPECTRAL),
     }; // viridisColorRamp(t) };
   }
 
   scheme["DEFAULT"] = {
     visible: true,
     name: "default",
-    color: getColorFromGradient(0.5, Gradients.VIRIDIS),
+    color: getColorFromGradient(0.5, Gradients.SPECTRAL),
   };
 
   return scheme;

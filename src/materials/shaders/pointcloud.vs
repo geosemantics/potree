@@ -1013,7 +1013,7 @@ void main() {
 	// Segment selection
 	#if defined(selected_segment_id)
 		if( int(round(segmentation)) == selected_segment_id){
-			vColor = vec3(1.0, 1.0, 0.0);
+			vColor = vec3(0.0,0.5,1);
 		}
 	#endif
 }
