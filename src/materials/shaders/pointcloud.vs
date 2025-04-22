@@ -19,6 +19,7 @@ attribute float gpsTime;
 attribute vec3 normal;
 attribute float aExtra;
 
+
 uniform mat4 modelMatrix;
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
@@ -126,12 +127,12 @@ uniform mat4 uShadowWorldView[num_shadowmaps];
 uniform mat4 uShadowProj[num_shadowmaps];
 #endif
 
+// Pass to the fragment shader
 varying vec3	vColor;
 varying float	vLogDepth;
 varying vec3	vViewPosition;
 varying float 	vRadius;
 varying float 	vPointSize;
-
 
 float round(float number){
 	return floor(number + 0.5);
@@ -467,6 +468,7 @@ vec4 getClassification(){
 			return classColor = texture2D(classificationLUT, uv);
 		}
 
+	// Use color based on segment id
 	#else
 		// Convert integer segment ID (0–255) to UV coordinate
     	float u = segmentation / 255.0;
@@ -701,6 +703,8 @@ vec3 getColor(){
 		color = vec3(0.);
 	}
 
+
+
 	return color;
 }
 
@@ -906,9 +910,6 @@ void main() {
 	gl_Position = projectionMatrix * mvPosition;
 	vLogDepth = log2(-mvPosition.z);
 
-	//gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
-	//gl_PointSize = 5.0;
-
 	// POINT SIZE
 	float pointSize = getPointSize();
 	//float pointSize = 2.0;
@@ -917,19 +918,6 @@ void main() {
 
 	// COLOR
 	vColor = getColor();
-	// vColor = vec3(1.0, 0.0, 0.0);
-
-	//gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
-	//gl_Position = vec4(position.xzy / 1000.0, 1.0 );
-
-	//gl_PointSize = 5.0;
-	//vColor = vec3(1.0, 1.0, 1.0);
-
-	// only for "replacing" approaches
-	// if(getLOD() != uLevel){
-	// 	gl_Position = vec4(10.0, 10.0, 10.0, 1.0);
-	// }
-
 
 	#if defined hq_depth_pass
 		float originalDepth = gl_Position.w;
@@ -1018,5 +1006,14 @@ void main() {
 
 		}
 
+	#endif
+
+
+
+	// Segment selection
+	#if defined(selected_segment_id)
+		if( int(round(segmentation)) == selected_segment_id){
+			vColor = vec3(1.0, 1.0, 0.0);
+		}
 	#endif
 }

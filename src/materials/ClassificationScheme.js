@@ -14,7 +14,7 @@ function getColorFromGradient(t, gradient) {
     }
   }
   color.copy(gradient[minIndex][1]);
-  return color.toArray().slice(0, 3).concat(1.0); // add alpha channel
+  return color.toArray().slice(0, 3).concat(0.5); // add alpha channel
 }
 
 // Default color: random color from VIRIDIS gradient

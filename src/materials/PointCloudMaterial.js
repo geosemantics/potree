@@ -40,6 +40,9 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		//  - compute if from segment based on user assignation, or
 		//  - show segmentation color if no user assigned class is available else show user assigned class
 		this._classificationStyle = "from_segment" // "from_segment" | "raw" | "mixed"
+
+		this._selectedSegmentId = -1;
+
 		this._pointSizeType = PointSizeType.FIXED;
 		this._shape = PointShape.SQUARE;
 		this._useClipBox = false;
@@ -93,7 +96,7 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			returnNumber: { type: 'f', value: [] },
 			numberOfReturns: { type: 'f', value: [] },
 			pointSourceID: { type: 'f', value: [] },
-			indices: { type: 'fv', value: [] }
+			indices: { type: 'fv', value: [] },
 		};
 
 		this.uniforms = {
@@ -135,7 +138,7 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			diffuse:			{ type: "fv", value: [1, 1, 1] },
 			transition:			{ type: "f", value: 0.5 },
 
-			 intensityRange:		{ type: "fv", value: [Infinity, -Infinity] },
+			intensityRange:		{ type: "fv", value: [Infinity, -Infinity] },
 
 			intensity_gbc: 		{ type: "fv", value: [1, 0, 0]},
 			uRGB_gbc:	 		{ type: "fv", value: [1, 0, 0]},
@@ -306,6 +309,10 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			defines.push(value);
 		}
 
+		if (this._selectedSegmentId !== -1) {
+			defines.push('#define selected_segment_id ' + this._selectedSegmentId);
+		}
+
 		return defines.join("\n");
 	}
 
@@ -392,6 +399,23 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		if(this.uniforms.backfaceCulling.value !== value){
 			this.uniforms.backfaceCulling.value = value;
 			this.dispatchEvent({type: 'backface_changed', target: this});
+		}
+	}
+
+	get selectedSegment () {
+		return this._selectedSegmentId;
+	}
+	selectSegment(segmentId) {
+		if (this._selectedSegmentId !== segmentId) {
+			this._selectedSegmentId = segmentId;
+			this.updateShaderSource();
+		}
+	}
+
+	unselectSegment() {
+		if (this._selectedSegmentId !== -1) {
+			this._selectedSegmentId = -1;
+			this.updateShaderSource();
 		}
 	}
 
