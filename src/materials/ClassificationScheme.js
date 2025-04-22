@@ -17,23 +17,23 @@ function getColorFromGradient(t, gradient) {
   return color.toArray().slice(0, 3).concat(0.5); // add alpha channel
 }
 
-// Default color: random color from VIRIDIS gradient
 function getDefault() {
   let scheme = {};
 
-  for (let i = 0; i <= 255; i++) {
-    let t = i / 255;
-    scheme[i] = {
-      visible: true,
-      name: "Seg " + i,
-      color: getColorFromGradient(Math.random(), Gradients.SPECTRAL),
-    }; // viridisColorRamp(t) };
-  }
+  // for (let i = 0; i <= 255; i++) {
+  //   let t = i / 255;
+  //   scheme[i] = {
+  //     visible: true,
+  //     name: "Seg " + i,
+  //     color: getColorFromGradient(Math.random(), Gradients.SPECTRAL),
+  //   }; // viridisColorRamp(t) };
+  // }
 
   scheme["DEFAULT"] = {
     visible: true,
-    name: "default",
-    color: getColorFromGradient(0.5, Gradients.SPECTRAL),
+    name: "unclassified",
+    // gray
+    color: [1.0, 1.0, 1.0, 1.0],
   };
 
   return scheme;

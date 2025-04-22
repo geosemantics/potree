@@ -451,28 +451,12 @@ vec4 getClassification(){
 		vec4 classColor = texture2D(classificationLUT, uv);
 		return classColor;
 
-	# elif defined(classification_mixed)
-		// NOT WORKING YET
-		// Show segmentation color if no user assigned class 
-		// is available else show user assigned class
-		vec2 uv = vec2(segmentation / 255.0, 0.5);
-		vec4 classColor = texture2D(classificationLUT, uv);
-
-		// Check if classColor is default color (0,0,0,0),
-		// then use segmentation color
-		if(classColor == vec4(1,1,1,1)){
-			uv = vec2(segmentation / 255.0, 0.5);
-			return classColor = texture2D(classificationLUT, uv);
-		} else {
-			uv = vec2(classification / 255.0, 0.5);
-			return classColor = texture2D(classificationLUT, uv);
-		}
-
 	// Use color based on segment id
 	#else
 		// Convert integer segment ID (0–255) to UV coordinate
     	float u = segmentation / 255.0;
     	vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
+
 		return classColor;
 	#endif
 
@@ -480,11 +464,21 @@ vec4 getClassification(){
 
 
 vec4 getSegmentation(){
-	vec2 uv = vec2(segmentation / 255.0, 0.5);
-	vec4 classColor = texture2D(classificationLUT, uv);
-	
+
+	// Convert integer segment ID (0–255) to UV coordinate
+    float u = segmentation / 255.0;
+
+
+	// Prioritize classification: if it exists, use it
+    vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
+
+	// If class color[0,2] = default[0,2]=[0.5, 0.5, 0.5], use segmentation color
+	if(classColor.r == 1.0 && classColor.g == 1.0 && classColor.b == 1.0){
+		classColor = texture2D(segmentationLUT, vec2(u, 0.0));
+	}
 	return classColor;
 }
+
 
 vec3 getReturns(){
 
