@@ -99,6 +99,7 @@ uniform float wRGB;
 uniform float wIntensity;
 uniform float wElevation;
 uniform float wClassification;
+uniform float wSegmentation;
 uniform float wReturnNumber;
 uniform float wSourceID;
 
@@ -442,11 +443,39 @@ vec3 getElevation(){
 }
 
 vec4 getClassification(){
-	vec2 uv = vec2(classification / 255.0, 0.5);
-	vec4 classColor = texture2D(classificationLUT, uv);
-	
-	return classColor;
+
+	// if define classification_raw is used, use the point's classification value
+	#ifdef classification_raw
+		vec2 uv = vec2(classification / 255.0, 0.5);
+		vec4 classColor = texture2D(classificationLUT, uv);
+		return classColor;
+
+	# elif defined(classification_mixed)
+		// NOT WORKING YET
+		// Show segmentation color if no user assigned class 
+		// is available else show user assigned class
+		vec2 uv = vec2(segmentation / 255.0, 0.5);
+		vec4 classColor = texture2D(classificationLUT, uv);
+
+		// Check if classColor is default color (0,0,0,0),
+		// then use segmentation color
+		if(classColor == vec4(1,1,1,1)){
+			uv = vec2(segmentation / 255.0, 0.5);
+			return classColor = texture2D(classificationLUT, uv);
+		} else {
+			uv = vec2(classification / 255.0, 0.5);
+			return classColor = texture2D(classificationLUT, uv);
+		}
+
+	#else
+		// Convert integer segment ID (0–255) to UV coordinate
+    	float u = segmentation / 255.0;
+    	vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
+		return classColor;
+	#endif
+
 }
+
 
 vec4 getSegmentation(){
 	vec2 uv = vec2(segmentation / 255.0, 0.5);

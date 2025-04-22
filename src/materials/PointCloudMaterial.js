@@ -35,6 +35,11 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		let maxSize = getValid(parameters.maxSize, 50.0);
 		let treeType = getValid(parameters.treeType, TreeType.OCTREE);
 
+		// Source classification attribute:
+		//  - from point's data, or
+		//  - compute if from segment based on user assignation, or
+		//  - show segmentation color if no user assigned class is available else show user assigned class
+		this._classificationStyle = "from_segment" // "from_segment" | "raw" | "mixed"
 		this._pointSizeType = PointSizeType.FIXED;
 		this._shape = PointShape.SQUARE;
 		this._useClipBox = false;
@@ -144,6 +149,7 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			wIntensity:			{ type: "f", value: 0 },
 			wElevation:			{ type: "f", value: 0 },
 			wClassification:	{ type: "f", value: 0 },
+			wSegmentation:		{ type: "f", value: 0 },
 			wReturnNumber:		{ type: "f", value: 0 },
 			wSourceID:			{ type: "f", value: 0 },
 			useOrthographicCamera: { type: "b", value: false },
@@ -246,6 +252,19 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 
 	getDefines () {
 		let defines = [];
+
+		if (this._classificationStyle === "raw") {
+			// 1. Use classification attribute from point's data
+			defines.push('#define classification_raw');
+		} else if (this._classificationStyle === "from_segment") {
+			// 2. Compute classification from segment
+			defines.push('#define classification_from_segment');
+		} else if (this._classificationStyle === "mixed") {
+			// NOT WORKING
+			// 3. Show segmentation color if no user assigned class 
+			// is available else show user assigned class
+			defines.push('#define classification_mixed');
+		}
 
 		if (this.pointSizeType === PointSizeType.FIXED) {
 			defines.push('#define fixed_point_size');
@@ -376,6 +395,31 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		}
 	}
 
+	get classificationStyle () {
+		return this._classificationStyle;
+	}
+
+	set classificationStyle (value) {
+		if (this._classificationStyle !== value) {
+			this._classificationStyle = value;
+			this.updateShaderSource();
+		}
+	}
+
+	setSegmentClass ( index, color, visible = true ) {
+		if (this.classification[index] === undefined) {
+			this.classification[index] = {
+				color: color,
+				visible: visible
+			};
+		}
+		else {
+			this.classification[index].color = color;
+			this.classification[index].visible = visible;
+		}
+		this.recomputeClassification();
+	}
+
 	recomputeClassification () {
 		const classification = this.classification;
 		const data = this.classificationTexture.image.data;
@@ -439,6 +483,7 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			});
 		}
 	}
+
 
 	recomputeSegmentation () {
 		const segmentation = this.segmentation;
@@ -1068,9 +1113,23 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		return this.uniforms.wClassification.value;
 	}
 
+	getWeightSegmentation (){
+		return this.uniforms.wSegmentation.value;
+	}
+
 	set weightClassification (value) {
 		if(this.uniforms.wClassification.value !== value){
 			this.uniforms.wClassification.value = value;
+			this.dispatchEvent({
+				type: 'material_property_changed',
+				target: this
+			});
+		}
+	}
+
+	set weightSegmentation (value) {
+		if(this.uniforms.wSegmentation.value !== value){
+			this.uniforms.wSegmentation.value = value;
 			this.dispatchEvent({
 				type: 'material_property_changed',
 				target: this
