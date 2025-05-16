@@ -9,6 +9,8 @@ import { OctreeGeometry, OctreeGeometryNode } from "./OctreeGeometry.js";
 // let loadedNodes = new Set();
 
 /**
+ * DEPRECATED
+ * SlopeManager
  * Modify the value of a buffer attribute *on-the-fly*,
  * based on the value of another attribute and a function.
  *
