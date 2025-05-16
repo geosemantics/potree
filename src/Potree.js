@@ -87,6 +87,8 @@ import {EptLoader} from "./loader/EptLoader.js";
 import {PointCloudOctree} from "./PointCloudOctree.js";
 import {WorkerPool} from "./WorkerPool.js";
 
+import { AuthManager } from "./modules/auth/index.js";
+
 export const workerPool = new WorkerPool();
 
 export const version = {
@@ -103,6 +105,8 @@ export let pointBudget = 1 * 1000 * 1000;
 export let framenumber = 0;
 export let numNodesLoading = 0;
 export let maxNodesLoading = 4;
+
+export const authManager = new AuthManager();
 
 export const debug = {};
 

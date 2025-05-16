@@ -11,7 +11,7 @@ import { OctreeGeometry, OctreeGeometryNode } from "./OctreeGeometry.js";
 /**
  * Modify the value of a buffer attribute *on-the-fly*,
  * based on the value of another attribute and a function.
- * 
+ *
  * The way thios works is, the base property and property buffers are retrieved
  * from the buffers that the worker returns. Then, they are parsed into Float32Arrays.
  * The arrays are then iterated over, and each value (i-th element) of the property's buffer is modified
@@ -44,6 +44,7 @@ function computeModifiedBufferAttribute(buffers, attribute, baseAttribute, fn) {
 export class NodeLoader {
   constructor(url) {
     this.url = url;
+    this.auth_headers = Potree.authManager.getHeaders();
   }
 
   async load(node) {
@@ -87,6 +88,7 @@ export class NodeLoader {
           headers: {
             "content-type": "multipart/byteranges",
             Range: `bytes=${first}-${last}`,
+            ...this.auth_headers,
           },
         });
 
@@ -138,8 +140,7 @@ export class NodeLoader {
             );
             bufferAttribute.normalized = true;
             geometry.setAttribute("indices", bufferAttribute);
-          }
-          else {
+          } else {
             const bufferAttribute = new THREE.BufferAttribute(
               new Float32Array(buffer),
               1
@@ -315,6 +316,8 @@ export class NodeLoader {
       headers: {
         "content-type": "multipart/byteranges",
         Range: `bytes=${first}-${last}`,
+        ...this.auth_headers
+
       },
     });
 
@@ -444,7 +447,13 @@ export class OctreeLoader {
   static async load(url) {
     // console.log("loading octree", url);
 
-    let response = await fetch(url);
+    //  set http_x_user_id to the value of the user id
+    let auth_headers = Potree.authManager.getHeaders();
+
+    let response = await fetch(url, {
+      headers: auth_headers,
+    });
+
     let metadata = await response.json();
 
     let attributes = OctreeLoader.parseAttributes(metadata.attributes);
