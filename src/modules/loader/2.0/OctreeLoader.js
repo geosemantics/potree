@@ -157,6 +157,7 @@ export class NodeLoader {
             //   }
             // );
 
+
             let batchAttribute = buffers[property].attribute;
             bufferAttribute.potree = {
               offset: buffers[property].offset,
@@ -164,6 +165,23 @@ export class NodeLoader {
               preciseBuffer: buffers[property].preciseBuffer,
               range: batchAttribute.range,
             };
+            
+
+            // Slopemanager: Multiple segmentation levels are computed, but only one is chosen 
+            // as the segmentation basis. Here we map the chosen segmentation attribute to the
+            // "segmentation" property.
+            // Map either of "segmentation 1", "segmentation 2" to "segmentation"
+            if (property === "segmentation 1") {
+              property = "segmentation";
+            } 
+            else if (property === "segmentation 2") {
+              property = "segmentation";
+            }
+            
+            //  Prefer the editable segmentation attribute
+            if (window.segmentationAttributeName && property === window.segmentationAttributeName) {
+              property = "segmentation";
+            }
 
             geometry.setAttribute(property, bufferAttribute);
           }
