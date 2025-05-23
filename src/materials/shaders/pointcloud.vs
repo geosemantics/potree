@@ -465,8 +465,10 @@ vec4 getClassification(){
 
 vec4 getSegmentation(){
 
+	float iteration = floor(segmentation / 256.0);
+	
 	// Convert integer segment ID (0–255) to UV coordinate
-    float u = segmentation / 255.0;
+	float u =  (segmentation - (255.0 * iteration)) / 255.0;
 
 
 	// Prioritize classification: if it exists, use it
