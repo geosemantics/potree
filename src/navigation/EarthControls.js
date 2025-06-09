@@ -54,7 +54,7 @@ export class EarthControls extends EventDispatcher {
 			let mouse = e.drag.end;
 			let domElement = this.viewer.renderer.domElement;
 
-			if (e.drag.mouse === MOUSE.LEFT) {
+			if (e.drag.mouse === MOUSE.RIGHT) {
 
 				let ray = Utils.mouseToRay(mouse, camera, domElement.clientWidth, domElement.clientHeight);
 				let plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
@@ -82,7 +82,7 @@ export class EarthControls extends EventDispatcher {
 						this.viewer.setMoveSpeed(speed);
 					}
 				}
-			} else if (e.drag.mouse === MOUSE.RIGHT) {
+			} else if (e.drag.mouse === MOUSE.LEFT) {
 				let ndrag = {
 					x: e.drag.lastDrag.x / this.renderer.domElement.clientWidth,
 					y: e.drag.lastDrag.y / this.renderer.domElement.clientHeight

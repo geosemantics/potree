@@ -171,10 +171,13 @@ export class NodeLoader {
             // as the segmentation basis. Here we map the chosen segmentation attribute to the
             // "segmentation" property.
             // Map either of "segmentation 1", "segmentation 2" to "segmentation"
-            if (property === "segmentation 1") {
+            if (property === "Level1") {
               property = "segmentation";
             } 
-            else if (property === "segmentation 2") {
+            else if (property === "Level2") {
+              property = "segmentation";
+            }
+            else if (property === "Level3") {
               property = "segmentation";
             }
             
