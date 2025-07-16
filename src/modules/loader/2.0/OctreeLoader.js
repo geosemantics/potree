@@ -172,19 +172,19 @@ export class NodeLoader {
             // "segmentation" property.
             // Map either of "segmentation 1", "segmentation 2" to "segmentation"
             if (property === "Level1") {
-              property = "segmentation";
+              property = "segmentation1";
             } 
             else if (property === "Level2") {
-              property = "segmentation";
+              property = "segmentation2";
             }
             else if (property === "Level3") {
-              property = "segmentation";
+              property = "segmentation3";
             }
             
             //  Prefer the editable segmentation attribute
-            if (window.segmentationAttributeName && property === window.segmentationAttributeName) {
-              property = "segmentation";
-            }
+            // if (window.segmentationAttributeName && property === window.segmentationAttributeName) {
+            //   property = "segmentation";
+            // }
 
             geometry.setAttribute(property, bufferAttribute);
           }

@@ -9,7 +9,9 @@ attribute vec3 position;
 attribute vec3 color;
 attribute float intensity;
 attribute float classification;
-attribute float segmentation;
+attribute float segmentation1;
+attribute float segmentation2;
+attribute float segmentation3;
 attribute float returnNumber;
 attribute float numberOfReturns;
 attribute float pointSourceID;
@@ -443,6 +445,22 @@ vec3 getElevation(){
 	return cElevation;
 }
 
+
+float getSegmentationValue(){
+	// If segmentation level 1 is defined, use it
+	#ifdef segmentation_level_1
+		return segmentation1;
+	// If segmentation level 2 is defined, use it
+	#elif defined segmentation_level_2
+		return segmentation2;
+	// If segmentation level 3 is defined, use it
+	#elif defined segmentation_level_3
+		return segmentation3;
+	// #else
+		// return 0.0; // Default case if no segmentation level is defined
+	#endif
+}
+
 vec4 getClassification(){
 
 	// if define classification_raw is used, use the point's classification value
@@ -453,6 +471,8 @@ vec4 getClassification(){
 
 	// Use color based on segment id
 	#else
+		float segmentation = getSegmentationValue();
+
 		// Convert integer segment ID (0–255) to UV coordinate
     	float u = segmentation / 255.0;
     	vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
@@ -462,8 +482,9 @@ vec4 getClassification(){
 
 }
 
-
 vec4 getSegmentation(){
+	// Get the segmentation value based on the defined segmentation level
+	float segmentation = getSegmentationValue();
 
 	float iteration = floor(segmentation / 256.0);
 	
@@ -679,8 +700,14 @@ vec3 getColor(){
 	#elif defined color_type_classification
 		vec4 cl = getClassification(); 
 		color = cl.rgb;
-	#elif defined color_type_segmentation
+	#elif defined color_type_segmentation1
 		vec4 sg = getSegmentation(); 
+		color = sg.rgb;
+	#elif defined color_type_segmentation2
+		vec4 sg = getSegmentation();
+		color = sg.rgb;
+	#elif defined color_type_segmentation3
+		vec4 sg = getSegmentation();
 		color = sg.rgb;
 	#elif defined color_type_return_number
 		color = getReturnNumber();
@@ -1016,6 +1043,7 @@ void main() {
 
 
 	// Segment selection
+	float segmentation = getSegmentationValue();
 	#if defined(selected_segment_id)
 		if( int(round(segmentation)) == selected_segment_id){
 			vColor = vec3(0.5176, 0.7569, 1.0);

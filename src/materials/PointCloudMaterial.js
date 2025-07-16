@@ -49,6 +49,9 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		// be it RGB, segment color or other.
 		this._superimposeClassification = false;
 
+		// Selected segmentation level: REDUNDANT, as we control that using activeAttributeName
+		this._segmentationLevel = 2;
+
 		this._pointSizeType = PointSizeType.FIXED;
 		this._shape = PointShape.SQUARE;
 		this._useClipBox = false;
@@ -98,7 +101,9 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			normal: { type: 'fv', value: [] },
 			intensity: { type: 'f', value: [] },
 			classification: { type: 'f', value: [] },
-			segmentation: { type: 'f', value: [] },
+			segmentation1: { type: 'f', value: [] },
+			segmentation2: { type: 'f', value: [] },
+			segmentation3: { type: 'f', value: [] },
 			returnNumber: { type: 'f', value: [] },
 			numberOfReturns: { type: 'f', value: [] },
 			pointSourceID: { type: 'f', value: [] },
@@ -323,6 +328,14 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			defines.push('#define superimpose_classification');
 		}
 
+		if (this._segmentationLevel === 1 || this.activeAttributeName === "segmentation1") {
+			defines.push('#define segmentation_level_1');
+		} else if (this._segmentationLevel === 2 || this.activeAttributeName === "segmentation2") {
+			defines.push('#define segmentation_level_2');
+		} else if (this._segmentationLevel === 3 || this.activeAttributeName === "segmentation3") {
+			defines.push('#define segmentation_level_3');
+		}
+
 		return defines.join("\n");
 	}
 
@@ -436,6 +449,13 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 				return;
 			}
 			this._superimposeClassification = value;
+			this.updateShaderSource();
+		}
+	}
+
+	setSegmentationLevel(level) {
+		if (this._segmentationLevel !== level) {
+			this._segmentationLevel = level;
 			this.updateShaderSource();
 		}
 	}
