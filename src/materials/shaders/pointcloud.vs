@@ -471,14 +471,23 @@ vec4 getSegmentation(){
 	float u =  (segmentation - (255.0 * iteration)) / 255.0;
 
 
-	// Prioritize classification: if it exists, use it
-    vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
+	// If superimpose_classification is defined, use classification LUT
+	// if segment is classified, else use segmentation LUT
+	#ifdef superimpose_classification
+		// Prioritize classification: if it exists, use it
+		vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
 
-	// If class color[0,2] = default[0,2]=[0.5, 0.5, 0.5], use segmentation color
-	if(classColor.r == 1.0 && classColor.g == 1.0 && classColor.b == 1.0){
-		classColor = texture2D(segmentationLUT, vec2(u, 0.0));
-	}
-	return classColor;
+		// If class color[0,2] = default[0,2]=[0.5, 0.5, 0.5], use segmentation color
+		if(classColor.r == 1.0 && classColor.g == 1.0 && classColor.b == 1.0){
+			classColor = texture2D(segmentationLUT, vec2(u, 0.0));
+		}
+		return classColor;
+
+	// If superimpose_classification is NOT defined, return segmentation color	
+	#else
+		vec4 segColor = texture2D(segmentationLUT, vec2(u, 0.0));
+		return segColor;
+	#endif
 }
 
 
@@ -1010,6 +1019,7 @@ void main() {
 	#if defined(selected_segment_id)
 		if( int(round(segmentation)) == selected_segment_id){
 			vColor = vec3(0.5176, 0.7569, 1.0);
+			// vColor.b += 0.5;
 		}
 	#endif
 }

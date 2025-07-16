@@ -41,7 +41,13 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		//  - show segmentation color if no user assigned class is available else show user assigned class
 		this._classificationStyle = "from_segment" // "from_segment" | "raw" | "mixed"
 
+		// Selected segment id: default none
 		this._selectedSegmentId = -1;
+
+		// Superimpose Classification
+		// When true, the classification color is superimposed on the point color,
+		// be it RGB, segment color or other.
+		this._superimposeClassification = false;
 
 		this._pointSizeType = PointSizeType.FIXED;
 		this._shape = PointShape.SQUARE;
@@ -313,6 +319,10 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			defines.push('#define selected_segment_id ' + this._selectedSegmentId);
 		}
 
+		if (this._superimposeClassification) {
+			defines.push('#define superimpose_classification');
+		}
+
 		return defines.join("\n");
 	}
 
@@ -411,10 +421,21 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			this.updateShaderSource();
 		}
 	}
-
 	unselectSegment() {
 		if (this._selectedSegmentId !== -1) {
 			this._selectedSegmentId = -1;
+			this.updateShaderSource();
+		}
+	}
+
+	setSuperimposeClassification(value) {
+		if (this._superimposeClassification !== value) {
+			// check boolean
+			if (typeof value !== 'boolean') {
+				console.warn('Invalid value for superimposeClassification. Expected boolean.');
+				return;
+			}
+			this._superimposeClassification = value;
 			this.updateShaderSource();
 		}
 	}
