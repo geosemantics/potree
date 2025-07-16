@@ -456,8 +456,8 @@ float getSegmentationValue(){
 	// If segmentation level 3 is defined, use it
 	#elif defined segmentation_level_3
 		return segmentation3;
-	// #else
-		// return 0.0; // Default case if no segmentation level is defined
+	#else
+		return 0.0; // Default case if no segmentation level is defined
 	#endif
 }
 
@@ -1043,8 +1043,8 @@ void main() {
 
 
 	// Segment selection
-	float segmentation = getSegmentationValue();
 	#if defined(selected_segment_id)
+		float segmentation = getSegmentationValue();
 		if( int(round(segmentation)) == selected_segment_id){
 			vColor = vec3(0.5176, 0.7569, 1.0);
 			// vColor.b += 0.5;

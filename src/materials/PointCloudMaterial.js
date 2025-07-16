@@ -328,11 +328,11 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			defines.push('#define superimpose_classification');
 		}
 
-		if (this._segmentationLevel === 1 || this.activeAttributeName === "segmentation1") {
+		if ( this.activeAttributeName === "segmentation1") {
 			defines.push('#define segmentation_level_1');
-		} else if (this._segmentationLevel === 2 || this.activeAttributeName === "segmentation2") {
+		} else if ( this.activeAttributeName === "segmentation2") {
 			defines.push('#define segmentation_level_2');
-		} else if (this._segmentationLevel === 3 || this.activeAttributeName === "segmentation3") {
+		} else if ( this.activeAttributeName === "segmentation3") {
 			defines.push('#define segmentation_level_3');
 		}
 
