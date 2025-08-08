@@ -142,7 +142,16 @@ export class NodeLoader {
             );
             bufferAttribute.normalized = true;
             geometry.setAttribute("indices", bufferAttribute);
-          } else {
+          } else if (
+            [
+              "Level1",
+              "Level2",
+              "Level3",
+              "segmentation1",
+              "segmentation2",
+              "segmentation3",
+            ].includes(property)
+          ) {
             const bufferAttribute = new THREE.BufferAttribute(
               new Float32Array(buffer),
               1
@@ -157,6 +166,38 @@ export class NodeLoader {
             //   }
             // );
 
+            let batchAttribute = buffers[property].attribute;
+            bufferAttribute.potree = {
+              offset: buffers[property].offset,
+              scale: buffers[property].scale,
+              preciseBuffer: buffers[property].preciseBuffer,
+              range: batchAttribute.range,
+            };
+
+            // Slopemanager: Multiple segmentation levels are computed, but only one is chosen
+            // as the segmentation basis. Here we map the chosen segmentation attribute to the
+            // "segmentation" property.
+            // Map either of "segmentation 1", "segmentation 2" to "segmentation"
+            if (property === "Level1") {
+              property = "segmentation1";
+            } else if (property === "Level2") {
+              property = "segmentation2";
+            } else if (property === "Level3") {
+              property = "segmentation3";
+            }
+
+            //  Prefer the editable segmentation attribute
+            // if (window.segmentationAttributeName && property === window.segmentationAttributeName) {
+            //   property = "segmentation";
+            // }
+
+            geometry.setAttribute(property, bufferAttribute);
+          } else {
+
+            const bufferAttribute = new THREE.BufferAttribute(
+              new Float32Array(buffer),
+              1
+            );
 
             let batchAttribute = buffers[property].attribute;
             bufferAttribute.potree = {
@@ -165,26 +206,6 @@ export class NodeLoader {
               preciseBuffer: buffers[property].preciseBuffer,
               range: batchAttribute.range,
             };
-            
-
-            // Slopemanager: Multiple segmentation levels are computed, but only one is chosen 
-            // as the segmentation basis. Here we map the chosen segmentation attribute to the
-            // "segmentation" property.
-            // Map either of "segmentation 1", "segmentation 2" to "segmentation"
-            if (property === "Level1") {
-              property = "segmentation1";
-            } 
-            else if (property === "Level2") {
-              property = "segmentation2";
-            }
-            else if (property === "Level3") {
-              property = "segmentation3";
-            }
-            
-            //  Prefer the editable segmentation attribute
-            // if (window.segmentationAttributeName && property === window.segmentationAttributeName) {
-            //   property = "segmentation";
-            // }
 
             geometry.setAttribute(property, bufferAttribute);
           }
@@ -339,8 +360,7 @@ export class NodeLoader {
       headers: {
         "content-type": "multipart/byteranges",
         Range: `bytes=${first}-${last}`,
-        ...this.auth_headers
-
+        ...this.auth_headers,
       },
     });
 

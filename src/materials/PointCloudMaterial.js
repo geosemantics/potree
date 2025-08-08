@@ -273,12 +273,13 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		} else if (this._classificationStyle === "from_segment") {
 			// 2. Compute classification from segment
 			defines.push('#define classification_from_segment');
-		} else if (this._classificationStyle === "mixed") {
-			// NOT WORKING
-			// 3. Show segmentation color if no user assigned class 
-			// is available else show user assigned class
-			defines.push('#define classification_mixed');
-		}
+		} 
+		// else if (this._classificationStyle === "mixed") {
+		// 	// NOT WORKING
+		// 	// 3. Show segmentation color if no user assigned class 
+		// 	// is available else show user assigned class
+		// 	defines.push('#define classification_mixed');
+		// }
 
 		if (this.pointSizeType === PointSizeType.FIXED) {
 			defines.push('#define fixed_point_size');

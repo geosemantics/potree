@@ -471,11 +471,26 @@ vec4 getClassification(){
 
 	// Use color based on segment id
 	#else
+		// float segmentation = getSegmentationValue();
+		// Convert integer segment ID (0–255) to UV coordinate
+    	// float u = segmentation / 255.0;
+    	// vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
+
+		// Get the segmentation value based on the defined segmentation level
 		float segmentation = getSegmentationValue();
 
+		float iteration = floor(segmentation / 256.0);
+	
 		// Convert integer segment ID (0–255) to UV coordinate
-    	float u = segmentation / 255.0;
-    	vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
+		float u =  (segmentation - (255.0 * iteration)) / 255.0;
+
+		// Prioritize classification: if it exists, use it
+		vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
+		
+		// If classification does not exist, use white
+		if(classColor.a == 0.0){
+			classColor = vec4(1.0);
+		}
 
 		return classColor;
 	#endif
