@@ -13,6 +13,37 @@ import {PointSizeType, PointShape, TreeType, ElevationGradientRepeat} from "../d
 // http://stackoverflow.com/questions/3717226/radius-of-projected-sphere
 //
 
+function createClassificationTextureMap() {
+	const maxTexSize = 8192; // webgl max texture size (MAX_TEXTURE_SIZE, usually 4096 or 8192)
+
+	// For 65536 entries, pick a square-ish texture
+	const texWidth = 256;
+	const texHeight = 256;
+
+	// Make sure data array is correct length (RGB per segment)
+	const colorData = new Uint8Array(texWidth * texHeight * 4); // RGBA
+	for (let i = 0; i < texWidth * texHeight; i++) {
+		// Set default color to white
+		colorData[i * 4 + 0] = 0; // R
+		colorData[i * 4 + 1] = 0; // G
+		colorData[i * 4 + 2] = 0; // B
+		colorData[i * 4 + 3] = 125; // A
+	}
+	// Create DataTexture
+	const classColorTex = new THREE.DataTexture(
+	    colorData,
+	    texWidth,
+	    texHeight,
+	    THREE.RGBAFormat
+	);
+
+	classColorTex.minFilter = THREE.NearestFilter;
+	classColorTex.magFilter = THREE.NearestFilter;
+	classColorTex.needsUpdate = true;
+
+	return classColorTex;
+}
+
 
 export class PointCloudMaterial extends THREE.RawShaderMaterial {
 	constructor (parameters = {}) {
@@ -75,16 +106,18 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		this._defaultIntensityRangeChanged = false;
 		this._defaultElevationRangeChanged = false;
 
+		//  Classification texture: classification is a UInt16 integer,
+		// so we use a 16-bit texture, with range [0, 65535].
 		{
-			const [width, height] = [256, 1];
-			let data = new Uint8Array(width * 4);
-			let texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat);
-			texture.magFilter = THREE.NearestFilter;
-			texture.needsUpdate = true;
+			// const [width, height] = [65536, 1];
+			// let data = new Uint8Array(width * 4);
+			// let texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat);
+			// texture.magFilter = THREE.NearestFilter;
+			// texture.needsUpdate = true;
+			const texture = createClassificationTextureMap();
 
 			this.classificationTexture = texture;
 		}
-
 		{
 			const [width, height] = [256, 1];
 			let sgdata = new Uint8Array(width * 4);
@@ -335,6 +368,10 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			defines.push('#define segmentation_level_2');
 		} else if ( this.activeAttributeName === "segmentation3") {
 			defines.push('#define segmentation_level_3');
+		} 
+		// if classification is used, we need to define the segmentation level
+		if (this.activeAttributeName === "classification") {
+			defines.push('#define segmentation_level_3');
 		}
 
 		return defines.join("\n");
@@ -490,7 +527,7 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		const classification = this.classification;
 		const data = this.classificationTexture.image.data;
 
-		let width = 256;
+		let width = 65536; // 65536 for 16-bit classification
 		const black = [1, 1, 1, 1];
 
 		let valuesChanged = false;

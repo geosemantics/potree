@@ -464,36 +464,33 @@ float getSegmentationValue(){
 vec4 getClassification(){
 
 	// if define classification_raw is used, use the point's classification value
-	#ifdef classification_raw
-		vec2 uv = vec2(classification / 255.0, 0.5);
-		vec4 classColor = texture2D(classificationLUT, uv);
-		return classColor;
+	// #ifdef classification_raw
+	// 	vec2 uv = vec2(classification / 255.0, 0.5);
+	// 	vec4 classColor = texture2D(classificationLUT, uv);
+	// 	return classColor;
 
 	// Use color based on segment id
-	#else
-		// float segmentation = getSegmentationValue();
-		// Convert integer segment ID (0–255) to UV coordinate
-    	// float u = segmentation / 255.0;
-    	// vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
+	// #else
+	float segmentation = getSegmentationValue();
 
-		// Get the segmentation value based on the defined segmentation level
-		float segmentation = getSegmentationValue();
+	// Convert to integer ID
+	int id = int(segmentation);
+	// Compute (x, y) index in 2D texture without using modulo (%)
+	int x = id - (id / 256) * 256;
+	int y = id / 256;
+	// Convert to normalized UV coords
+	vec2 uv = vec2(
+		(float(x) + 0.5) / 256.0,
+		(float(y) + 0.5) / 256.0
+	);
+	vec4 classColor = texture2D(classificationLUT, uv);
 
-		float iteration = floor(segmentation / 256.0);
-	
-		// Convert integer segment ID (0–255) to UV coordinate
-		float u =  (segmentation - (255.0 * iteration)) / 255.0;
-
-		// Prioritize classification: if it exists, use it
-		vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
-		
-		// If classification does not exist, use white
-		if(classColor.a == 0.0){
-			classColor = vec4(1.0);
-		}
-
-		return classColor;
-	#endif
+	// // If classification does not exist, use white
+	// if(classColor.a == 0.0){
+	// 	classColor = vec4(1.0);
+	// }
+	return classColor;
+	// #endif
 
 }
 
@@ -511,7 +508,8 @@ vec4 getSegmentation(){
 	// if segment is classified, else use segmentation LUT
 	#ifdef superimpose_classification
 		// Prioritize classification: if it exists, use it
-		vec4 classColor = texture2D(classificationLUT, vec2(u, 0.0));
+		// vec4 classColor = texture2D(classificationLUT, vec2(segmentation, 0.0));
+		vec4 classColor = getClassification();
 
 		// If class color[0,2] = default[0,2]=[0.5, 0.5, 0.5], use segmentation color
 		if(classColor.r == 1.0 && classColor.g == 1.0 && classColor.b == 1.0){
