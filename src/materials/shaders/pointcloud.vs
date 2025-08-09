@@ -461,6 +461,11 @@ float getSegmentationValue(){
 	#endif
 }
 
+/* modulo operator for integers */
+int imod(int a, int b) { 
+	return a - b * (a / b);
+}
+
 vec4 getClassification(){
 
 	// if define classification_raw is used, use the point's classification value
@@ -475,9 +480,11 @@ vec4 getClassification(){
 
 	// Convert to integer ID
 	int id = int(segmentation);
-	// Compute (x, y) index in 2D texture without using modulo (%)
-	int x = id - (id / 256) * 256;
+
+	// Compute (x, y) index in 2D texture 
+	int x = imod(id, 256);
 	int y = id / 256;
+	
 	// Convert to normalized UV coords
 	vec2 uv = vec2(
 		(float(x) + 0.5) / 256.0,
@@ -601,17 +608,17 @@ vec3 getCompositeColor(){
 	c += wRGB * getRGB();
 	w += wRGB;
 	
-	c += wIntensity * getIntensity() * vec3(1.0, 1.0, 1.0);
-	w += wIntensity;
+	// c += wIntensity * getIntensity() * vec3(1.0, 1.0, 1.0);
+	// w += wIntensity;
 	
 	c += wElevation * getElevation();
 	w += wElevation;
 	
-	c += wReturnNumber * getReturnNumber();
-	w += wReturnNumber;
+	// c += wReturnNumber * getReturnNumber();
+	// w += wReturnNumber;
 	
-	c += wSourceID * getSourceID();
-	w += wSourceID;
+	// c += wSourceID * getSourceID();
+	// w += wSourceID;
 	
 	vec4 cl = wClassification * getClassification();
 	c += cl.a * cl.rgb;

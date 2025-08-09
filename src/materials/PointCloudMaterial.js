@@ -27,7 +27,7 @@ function createClassificationTextureMap() {
 		colorData[i * 4 + 0] = 0; // R
 		colorData[i * 4 + 1] = 0; // G
 		colorData[i * 4 + 2] = 0; // B
-		colorData[i * 4 + 3] = 125; // A
+		colorData[i * 4 + 3] = 1; // A
 	}
 	// Create DataTexture
 	const classColorTex = new THREE.DataTexture(
@@ -195,7 +195,7 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			wRGB:				{ type: "f", value: 1 },
 			wIntensity:			{ type: "f", value: 0 },
 			wElevation:			{ type: "f", value: 0 },
-			wClassification:	{ type: "f", value: 0 },
+			wClassification:	{ type: "f", value: 0.7 },
 			wSegmentation:		{ type: "f", value: 0 },
 			wReturnNumber:		{ type: "f", value: 0 },
 			wSourceID:			{ type: "f", value: 0 },
