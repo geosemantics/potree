@@ -47,16 +47,31 @@ class U {
 	}
 };
 
-class BaseGeometry {
-	constructor({ 
-		cube,
-		boundsConforming,
-		spacing,
-		srs,
-	}) {
-		this.cube = cube;
+export class PointCloudEptGeometry {
+        constructor(url, signUrl, info) {
+		let version = info.version;
+		let schema = info.schema;
+		let bounds = info.bounds;
+		let boundsConforming = info.boundsConforming;
 
-		this.boundingBox = U.toBox3(cube);
+		let xyz = [
+			U.findDim(schema, 'X'),
+			U.findDim(schema, 'Y'),
+			U.findDim(schema, 'Z')
+		];
+		let scale = xyz.map((d) => d.scale || 1);
+		let offset = xyz.map((d) => d.offset || 0);
+		this.eptScale = U.toVector3(scale);
+		this.eptOffset = U.toVector3(offset);
+
+                this.url = url;
+                this.signUrl = signUrl;
+		this.info = info;
+		this.type = 'ept';
+
+		this.schema = schema;
+		this.span = info.span || info.ticks;
+		this.boundingBox = U.toBox3(bounds);
 		this.tightBoundingBox = U.toBox3(boundsConforming);
 		this.boundingSphere = U.sphereFrom(this.boundingBox);
 		this.tightBoundingSphere = U.sphereFrom(this.tightBoundingBox);
@@ -198,9 +213,11 @@ export class PointCloudCopcGeometryNode extends PointCloudTreeNode {
 	isLoaded() { return this.loaded; }
 	getBoundingSphere() { return this.boundingSphere; }
 	getBoundingBox() { return this.boundingBox; }
-	getNumPoints() { 
-		return this.nodeinfo ? this.nodeinfo.pointCount : -1; 
-	}
+	url() { return this.ept.url + 'ept-data/' + this.filename(); }
+        signUrl(url) { return this.ept.signUrl(url); }
+	getNumPoints() { return this.numPoints; }
+
+	filename() { return this.key.name(); }
 
 	getChildren() {
 		let children = [];
@@ -244,11 +261,8 @@ export class PointCloudCopcGeometryNode extends PointCloudTreeNode {
 
 		const { nodes, pages } = await this.owner.loadHierarchyPage(this.key)
 
-		// Since we want to traverse top-down, and 10 comes lexicographically 
-		// before 9 (for example), do a deep sort.
-		const keys = Object.keys({ ...nodes, ...pages })
-			.map(Key.create)
-			.sort(Key.compare)
+	        let response = await fetch(await this.ept.signUrl(eptHierarchyFile));
+		let hier = await response.json();
 
 		keys.forEach((key) => {
 			const keyname = Key.toString(key)

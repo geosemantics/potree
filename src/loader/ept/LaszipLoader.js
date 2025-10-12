@@ -6,10 +6,22 @@ export class EptLaszipLoader {
 
 		const { Key } = window.Copc
 
-		const url = `${node.owner.base}/ept-data/${Key.toString(node.key)}.laz`
-		const response = await fetch(url);
-		const buffer = await response.arrayBuffer();
-		this.parse(node, buffer);
+		let xhr = XHRFactory.createXMLHttpRequest();
+	        xhr.open('GET', await node.signUrl(url), true);
+		xhr.responseType = 'arraybuffer';
+		xhr.overrideMimeType('text/plain; charset=x-user-defined');
+		xhr.onreadystatechange = () => {
+			if (xhr.readyState === 4) {
+				if (xhr.status === 200) {
+					let buffer = xhr.response;
+					this.parse(node, buffer);
+				} else {
+					console.log('Failed ' + url + ': ' + xhr.status);
+				}
+			}
+		};
+
+		xhr.send(null);
 	}
 
 	async parse(node, compressed){

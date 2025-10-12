@@ -8,46 +8,12 @@ import { OctreeGeometry, OctreeGeometryNode } from "./OctreeGeometry.js";
 
 // let loadedNodes = new Set();
 
-/**
- * DEPRECATED
- * SlopeManager
- * Modify the value of a buffer attribute *on-the-fly*,
- * based on the value of another attribute and a function.
- *
- * The way thios works is, the base property and property buffers are retrieved
- * from the buffers that the worker returns. Then, they are parsed into Float32Arrays.
- * The arrays are then iterated over, and each value (i-th element) of the property's buffer is modified
- * based on the value of the base property buffer(i-th element) and the function passed as argument.
- *
- * @param {Object} buffers: the buffers returned by the worker
- * @param {*} property: the property to compute a derivative BufferAttribute for
- * @param {*} baseProperty: the property to use as base for the modification
- * @param {*} fn : the function to apply to the base property buffer value
- * @returns {BufferAttribute} : the modified BufferAttribute, ready to be passed to THREE.BufferGeometry.setAttribute
- * @example
- * let modifiedAttribute = computeModifiedBufferAttribute(buffers, prop, otherProp, (value) => value * 2);
- */
-function computeModifiedBufferAttribute(buffers, attribute, baseAttribute, fn) {
-  const attrBuffer = buffers[attribute].buffer;
-  const baseBuffer = buffers[baseAttribute].buffer;
+export class NodeLoader{
 
-  const attrArray = new Float32Array(attrBuffer);
-  const baseArray = new Float32Array(baseBuffer);
-
-  const modifiedArray = new Float32Array(attrArray.length);
-  for (let i = 0; i < attrArray.length; i++) {
-    modifiedArray[i] = fn(baseArray[i]);
-  }
-
-  const modifiedBufferAttribute = new THREE.BufferAttribute(modifiedArray, 1);
-  return modifiedBufferAttribute;
-}
-
-export class NodeLoader {
-  constructor(url) {
-    this.url = url;
-    this.auth_headers = Potree.authManager.getHeaders();
-  }
+        constructor(url, signUrl){
+                this.url = url;
+                this.signUrl = signUrl;
+	}
 
   async load(node) {
     // console.log(`loading node`,node);
@@ -74,28 +40,23 @@ export class NodeLoader {
 
       let { byteOffset, byteSize } = node;
 
-      let urlOctree = `${this.url}/../octree.bin`;
+                        const lastSlash = this.url.lastIndexOf('/');
+			const urlOctree = `${this.url.substring(0, lastSlash + 1)}octree.bin`;
 
       let first = byteOffset;
       let last = byteOffset + byteSize - 1n; // 1n: verbosely use BigInt precision (num > regular Number)
 
       let buffer;
 
-      if (byteSize === 0n) {
-        buffer = new ArrayBuffer(0);
-        // console.warn(`loaded node with 0 bytes: ${node.name}`);
-      } else {
-        // console.log(`loading node ${node.name} (${byteSize} bytes)`, node);
-        let response = await fetch(urlOctree, {
-          headers: {
-            "content-type": "multipart/byteranges",
-            Range: `bytes=${first}-${last}`,
-            ...this.auth_headers,
-          },
-        });
-
-        buffer = await response.arrayBuffer();
-      }
+			if(byteSize === 0n){
+				buffer = new ArrayBuffer(0);
+				console.warn(`loaded node with 0 bytes: ${node.name}`);
+			}else{
+                    const headers = {Range: `bytes=${first}-${last}`};
+			        const response = await fetch(await this.signUrl(urlOctree, headers),
+                                                             {headers})
+				buffer = await response.arrayBuffer();
+			}
 
       let workerPath;
       if (this.metadata.encoding === "BROTLI") {
@@ -282,31 +243,25 @@ export class NodeLoader {
       // 	// debugger;
       // }
 
-      if (current.nodeType === 2) {
-        // replace proxy with real node
-        current.byteOffset = byteOffset;
-        current.byteSize = byteSize;
-        current.numPoints = numPoints;
-      } else if (type === 2) {
-        // load proxy
-        current.hierarchyByteOffset = byteOffset;
-        current.hierarchyByteSize = byteSize;
-        current.numPoints = numPoints;
-      } else {
-        // load real node
-        current.byteOffset = byteOffset;
-        current.byteSize = byteSize;
-        current.numPoints = numPoints;
-      }
 
-      if (current.byteSize === 0n) {
-        // workaround for issue #1125
-        // some inner nodes erroneously report >0 points even though have 0 points
-        // however, they still report a byteSize of 0, so based on that we now set node.numPoints to 0
-        current.numPoints = 0;
-      }
+			if(current.nodeType === 2){
+				// replace proxy with real node
+				current.byteOffset = byteOffset;
+				current.byteSize = byteSize;
+				current.numPoints = numPoints;
+			}else if(type === 2){
+				// load proxy
+				current.hierarchyByteOffset = byteOffset;
+				current.hierarchyByteSize = byteSize;
+				current.numPoints = numPoints;
+			}else{
+				// load real node
+				current.byteOffset = byteOffset;
+				current.byteSize = byteSize;
+				current.numPoints = numPoints;
+			}
 
-      current.nodeType = type;
+			current.nodeType = type;
 
       if (current.nodeType === 2) {
         continue;
@@ -349,22 +304,18 @@ export class NodeLoader {
     // }
   }
 
-  async loadHierarchy(node) {
-    let { hierarchyByteOffset, hierarchyByteSize } = node;
-    let hierarchyPath = `${this.url}/../hierarchy.bin`;
+	async loadHierarchy(node){
 
-    let first = hierarchyByteOffset;
-    let last = first + hierarchyByteSize - 1n;
+		let {hierarchyByteOffset, hierarchyByteSize} = node;
+                const lastSlash = this.url.lastIndexOf('/');
+		const hierarchyPath = `${this.url.substring(0, lastSlash + 1)}hierarchy.bin`;
+		let first = hierarchyByteOffset;
+		let last = first + hierarchyByteSize - 1n;
 
-    let response = await fetch(hierarchyPath, {
-      headers: {
-        "content-type": "multipart/byteranges",
-        Range: `bytes=${first}-${last}`,
-        ...this.auth_headers,
-      },
-    });
-
-    let buffer = await response.arrayBuffer();
+                const headers = {Range: `bytes=${first}-${last}`};
+                const response = await fetch(await this.signUrl(hierarchyPath, headers),
+                                             {headers})
+		let buffer = await response.arrayBuffer();
 
     this.parseHierarchy(node, buffer);
 
@@ -374,18 +325,24 @@ export class NodeLoader {
     // 	let repeatUntilDone = () => {
     // 		let result = generator.next();
 
-    // 		if(result.done){
-    // 			resolve();
-    // 		}else{
-    // 			requestAnimationFrame(repeatUntilDone);
-    // 		}
-    // 	};
+		// 		if(result.done){
+		// 			resolve();
+		// 		}else{
+		// 			requestAnimationFrame(repeatUntilDone);
+		// 		}
+		// 	};
 
-    // 	repeatUntilDone();
-    // });
+		// 	repeatUntilDone();
+		// });
 
-    // await promise;
-  }
+		// await promise;
+
+
+
+
+
+	}
+
 }
 
 let tmpVec3 = new THREE.Vector3();
@@ -400,17 +357,17 @@ function createChildAABB(aabb, index) {
     max.z -= size.z / 2;
   }
 
-  if ((index & 0b0010) > 0) {
-    min.y += size.y / 2;
-  } else {
-    max.y -= size.y / 2;
-  }
+	if ((index & 0b0010) > 0) {
+		min.y += size.y / 2;
+	} else {
+		max.y -= size.y / 2;
+	}
 
-  if ((index & 0b0100) > 0) {
-    min.x += size.x / 2;
-  } else {
-    max.x -= size.x / 2;
-  }
+	if ((index & 0b0100) > 0) {
+		min.x += size.x / 2;
+	} else {
+		max.x -= size.x / 2;
+	}
 
   return new THREE.Box3(min, max);
 }
@@ -468,12 +425,12 @@ export class OctreeLoader {
       attributes.add(attribute);
     }
 
-    {
-      // check if it has normals
-      let hasNormals =
-        attributes.attributes.find((a) => a.name === "NormalX") !== undefined &&
-        attributes.attributes.find((a) => a.name === "NormalY") !== undefined &&
-        attributes.attributes.find((a) => a.name === "NormalZ") !== undefined;
+		{
+			// check if it has normals
+			let hasNormals =
+				attributes.attributes.find(a => a.name === "NormalX") !== undefined &&
+				attributes.attributes.find(a => a.name === "NormalY") !== undefined &&
+				attributes.attributes.find(a => a.name === "NormalZ") !== undefined;
 
       if (hasNormals) {
         let vector = {
@@ -487,27 +444,25 @@ export class OctreeLoader {
     return attributes;
   }
 
-  static async load(url) {
-    // console.log("loading octree", url);
+        static async load(url, signUrl){
+                const response = await fetch(await signUrl(url));
+                if (!response.ok) {
+                    // AWS "file not found" with signed URL returns 403
+                    if ([403, 404].includes(response.status)) {
+                            return {};
+                    }
+                    throw new Error(`Fetch error type: ${response.type}, status: ${response.status} ${response.statusText}`);
+                }
+		let metadata = await response.json();
 
-    //  set http_x_user_id to the value of the user id
-    let auth_headers = Potree.authManager.getHeaders();
-
-    let response = await fetch(url, {
-      headers: auth_headers,
-    });
-
-    let metadata = await response.json();
-
-    let attributes = OctreeLoader.parseAttributes(metadata.attributes);
+		let attributes = OctreeLoader.parseAttributes(metadata.attributes);
 
     // console.log("Ooctree loader | attrs:", attributes);
-
-    let loader = new NodeLoader(url);
-    loader.metadata = metadata;
-    loader.attributes = attributes;
-    loader.scale = metadata.scale;
-    loader.offset = metadata.offset;
+ let loader = new NodeLoader(url, signUrl);
+		loader.metadata = metadata;
+		loader.attributes = attributes;
+		loader.scale = metadata.scale;
+		loader.offset = metadata.offset;
 
     let octree = new OctreeGeometry();
     octree.url = url;
@@ -554,6 +509,7 @@ export class OctreeLoader {
       geometry: octree,
     };
 
-    return result;
-  }
-}
+	        return result;
+	}
+
+};
