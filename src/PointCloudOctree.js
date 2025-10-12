@@ -104,6 +104,9 @@ export class PointCloudOctree extends PointCloudTree {
   constructor(geometry, material, priorities = undefined) {
     super();
 
+	// console.log("Initializing PointCloudOctree with render priorities:", priorities);
+
+
     this.pointBudget = Infinity;
     this.pcoGeometry = geometry;
     this.boundingBox = this.pcoGeometry.boundingBox;
@@ -125,6 +128,8 @@ export class PointCloudOctree extends PointCloudTree {
         "classification",
       ];
       let selected = "rgba";
+
+	//   console.log("Selecting active attribute from priority queue:", priorityQueue);
 
       for (let attributeName of priorityQueue) {
         let attribute = this.pcoGeometry.pointAttributes.attributes.find(
