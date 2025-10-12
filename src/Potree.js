@@ -224,7 +224,7 @@ export function loadPointCloud(path, name, callback, signUrlArg) {
           // Control the default/priority of the rendering properties
           let pointcloud = new PointCloudOctree(
             geometry,
-            null,
+            null
             // render_property_priorities
           );
 
