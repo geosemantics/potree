@@ -6,14 +6,39 @@ import {
 } from "../../../loader/PointAttributes.js";
 import { OctreeGeometry, OctreeGeometryNode } from "./OctreeGeometry.js";
 
+/**
+ * @param {Object} buffers: the buffers returned by the worker
+ * @param {*} property: the property to compute a derivative BufferAttribute for
+ * @param {*} baseProperty: the property to use as base for the modification
+ * @param {*} fn : the function to apply to the base property buffer value
+ * @returns {BufferAttribute} : the modified BufferAttribute, ready to be passed to THREE.BufferGeometry.setAttribute
+ * @example
+ * let modifiedAttribute = computeModifiedBufferAttribute(buffers, prop, otherProp, (value) => value * 2);
+ */
+function computeModifiedBufferAttribute(buffers, attribute, baseAttribute, fn) {
+  const attrBuffer = buffers[attribute].buffer;
+  const baseBuffer = buffers[baseAttribute].buffer;
+
+  const attrArray = new Float32Array(attrBuffer);
+  const baseArray = new Float32Array(baseBuffer);
+
+  const modifiedArray = new Float32Array(attrArray.length);
+  for (let i = 0; i < attrArray.length; i++) {
+    modifiedArray[i] = fn(baseArray[i]);
+  }
+
+  const modifiedBufferAttribute = new THREE.BufferAttribute(modifiedArray, 1);
+  return modifiedBufferAttribute;
+}
+
 // let loadedNodes = new Set();
 
-export class NodeLoader{
-
-        constructor(url, signUrl){
-                this.url = url;
-                this.signUrl = signUrl;
-	}
+export class NodeLoader {
+  constructor(url, signUrl) {
+    this.url = url;
+    this.signUrl = signUrl;
+    this.auth_headers = Potree.authManager.getHeaders();
+  }
 
   async load(node) {
     // console.log(`loading node`,node);
@@ -40,23 +65,24 @@ export class NodeLoader{
 
       let { byteOffset, byteSize } = node;
 
-                        const lastSlash = this.url.lastIndexOf('/');
-			const urlOctree = `${this.url.substring(0, lastSlash + 1)}octree.bin`;
+      const lastSlash = this.url.lastIndexOf("/");
+      const urlOctree = `${this.url.substring(0, lastSlash + 1)}octree.bin`;
 
       let first = byteOffset;
       let last = byteOffset + byteSize - 1n; // 1n: verbosely use BigInt precision (num > regular Number)
 
       let buffer;
 
-			if(byteSize === 0n){
-				buffer = new ArrayBuffer(0);
-				console.warn(`loaded node with 0 bytes: ${node.name}`);
-			}else{
-                    const headers = {Range: `bytes=${first}-${last}`};
-			        const response = await fetch(await this.signUrl(urlOctree, headers),
-                                                             {headers})
-				buffer = await response.arrayBuffer();
-			}
+      if (byteSize === 0n) {
+        buffer = new ArrayBuffer(0);
+        console.warn(`loaded node with 0 bytes: ${node.name}`);
+      } else {
+        const headers = { Range: `bytes=${first}-${last}` };
+        const response = await fetch(await this.signUrl(urlOctree, headers), {
+          headers,
+        });
+        buffer = await response.arrayBuffer();
+      }
 
       let workerPath;
       if (this.metadata.encoding === "BROTLI") {
@@ -154,7 +180,6 @@ export class NodeLoader{
 
             geometry.setAttribute(property, bufferAttribute);
           } else {
-
             const bufferAttribute = new THREE.BufferAttribute(
               new Float32Array(buffer),
               1
@@ -243,25 +268,24 @@ export class NodeLoader{
       // 	// debugger;
       // }
 
+      if (current.nodeType === 2) {
+        // replace proxy with real node
+        current.byteOffset = byteOffset;
+        current.byteSize = byteSize;
+        current.numPoints = numPoints;
+      } else if (type === 2) {
+        // load proxy
+        current.hierarchyByteOffset = byteOffset;
+        current.hierarchyByteSize = byteSize;
+        current.numPoints = numPoints;
+      } else {
+        // load real node
+        current.byteOffset = byteOffset;
+        current.byteSize = byteSize;
+        current.numPoints = numPoints;
+      }
 
-			if(current.nodeType === 2){
-				// replace proxy with real node
-				current.byteOffset = byteOffset;
-				current.byteSize = byteSize;
-				current.numPoints = numPoints;
-			}else if(type === 2){
-				// load proxy
-				current.hierarchyByteOffset = byteOffset;
-				current.hierarchyByteSize = byteSize;
-				current.numPoints = numPoints;
-			}else{
-				// load real node
-				current.byteOffset = byteOffset;
-				current.byteSize = byteSize;
-				current.numPoints = numPoints;
-			}
-
-			current.nodeType = type;
+      current.nodeType = type;
 
       if (current.nodeType === 2) {
         continue;
@@ -304,18 +328,21 @@ export class NodeLoader{
     // }
   }
 
-	async loadHierarchy(node){
+  async loadHierarchy(node) {
+    let { hierarchyByteOffset, hierarchyByteSize } = node;
+    const lastSlash = this.url.lastIndexOf("/");
+    const hierarchyPath = `${this.url.substring(
+      0,
+      lastSlash + 1
+    )}hierarchy.bin`;
+    let first = hierarchyByteOffset;
+    let last = first + hierarchyByteSize - 1n;
 
-		let {hierarchyByteOffset, hierarchyByteSize} = node;
-                const lastSlash = this.url.lastIndexOf('/');
-		const hierarchyPath = `${this.url.substring(0, lastSlash + 1)}hierarchy.bin`;
-		let first = hierarchyByteOffset;
-		let last = first + hierarchyByteSize - 1n;
-
-                const headers = {Range: `bytes=${first}-${last}`};
-                const response = await fetch(await this.signUrl(hierarchyPath, headers),
-                                             {headers})
-		let buffer = await response.arrayBuffer();
+    const headers = { Range: `bytes=${first}-${last}` };
+    const response = await fetch(await this.signUrl(hierarchyPath, headers), {
+      headers,
+    });
+    let buffer = await response.arrayBuffer();
 
     this.parseHierarchy(node, buffer);
 
@@ -325,24 +352,18 @@ export class NodeLoader{
     // 	let repeatUntilDone = () => {
     // 		let result = generator.next();
 
-		// 		if(result.done){
-		// 			resolve();
-		// 		}else{
-		// 			requestAnimationFrame(repeatUntilDone);
-		// 		}
-		// 	};
+    // 		if(result.done){
+    // 			resolve();
+    // 		}else{
+    // 			requestAnimationFrame(repeatUntilDone);
+    // 		}
+    // 	};
 
-		// 	repeatUntilDone();
-		// });
+    // 	repeatUntilDone();
+    // });
 
-		// await promise;
-
-
-
-
-
-	}
-
+    // await promise;
+  }
 }
 
 let tmpVec3 = new THREE.Vector3();
@@ -357,17 +378,17 @@ function createChildAABB(aabb, index) {
     max.z -= size.z / 2;
   }
 
-	if ((index & 0b0010) > 0) {
-		min.y += size.y / 2;
-	} else {
-		max.y -= size.y / 2;
-	}
+  if ((index & 0b0010) > 0) {
+    min.y += size.y / 2;
+  } else {
+    max.y -= size.y / 2;
+  }
 
-	if ((index & 0b0100) > 0) {
-		min.x += size.x / 2;
-	} else {
-		max.x -= size.x / 2;
-	}
+  if ((index & 0b0100) > 0) {
+    min.x += size.x / 2;
+  } else {
+    max.x -= size.x / 2;
+  }
 
   return new THREE.Box3(min, max);
 }
@@ -425,12 +446,12 @@ export class OctreeLoader {
       attributes.add(attribute);
     }
 
-		{
-			// check if it has normals
-			let hasNormals =
-				attributes.attributes.find(a => a.name === "NormalX") !== undefined &&
-				attributes.attributes.find(a => a.name === "NormalY") !== undefined &&
-				attributes.attributes.find(a => a.name === "NormalZ") !== undefined;
+    {
+      // check if it has normals
+      let hasNormals =
+        attributes.attributes.find((a) => a.name === "NormalX") !== undefined &&
+        attributes.attributes.find((a) => a.name === "NormalY") !== undefined &&
+        attributes.attributes.find((a) => a.name === "NormalZ") !== undefined;
 
       if (hasNormals) {
         let vector = {
@@ -444,25 +465,27 @@ export class OctreeLoader {
     return attributes;
   }
 
-        static async load(url, signUrl){
-                const response = await fetch(await signUrl(url));
-                if (!response.ok) {
-                    // AWS "file not found" with signed URL returns 403
-                    if ([403, 404].includes(response.status)) {
-                            return {};
-                    }
-                    throw new Error(`Fetch error type: ${response.type}, status: ${response.status} ${response.statusText}`);
-                }
-		let metadata = await response.json();
+  static async load(url, signUrl) {
+    const response = await fetch(await signUrl(url));
+    if (!response.ok) {
+      // AWS "file not found" with signed URL returns 403
+      if ([403, 404].includes(response.status)) {
+        return {};
+      }
+      throw new Error(
+        `Fetch error type: ${response.type}, status: ${response.status} ${response.statusText}`
+      );
+    }
+    let metadata = await response.json();
 
-		let attributes = OctreeLoader.parseAttributes(metadata.attributes);
+    let attributes = OctreeLoader.parseAttributes(metadata.attributes);
 
     // console.log("Ooctree loader | attrs:", attributes);
- let loader = new NodeLoader(url, signUrl);
-		loader.metadata = metadata;
-		loader.attributes = attributes;
-		loader.scale = metadata.scale;
-		loader.offset = metadata.offset;
+    let loader = new NodeLoader(url, signUrl);
+    loader.metadata = metadata;
+    loader.attributes = attributes;
+    loader.scale = metadata.scale;
+    loader.offset = metadata.offset;
 
     let octree = new OctreeGeometry();
     octree.url = url;
@@ -509,7 +532,6 @@ export class OctreeLoader {
       geometry: octree,
     };
 
-	        return result;
-	}
-
-};
+    return result;
+  }
+}
