@@ -510,7 +510,6 @@ vec4 getSegmentation(){
 	// Convert integer segment ID (0–255) to UV coordinate
 	float u =  (segmentation - (255.0 * iteration)) / 255.0;
 
-
 	// If superimpose_classification is defined, use classification LUT
 	// if segment is classified, else use segmentation LUT
 	#ifdef superimpose_classification

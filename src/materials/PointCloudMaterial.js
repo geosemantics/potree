@@ -370,9 +370,9 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			defines.push('#define segmentation_level_3');
 		} 
 		// if classification is used, we need to define the segmentation level
-		if (this.activeAttributeName === "classification") {
-			defines.push('#define segmentation_level_3');
-		}
+		// if (this.activeAttributeName === "classification") {
+		// 	defines.push('#define segmentation_level_3');
+		// }
 
 		return defines.join("\n");
 	}
