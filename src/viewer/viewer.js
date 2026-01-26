@@ -311,7 +311,7 @@ export class Viewer extends EventDispatcher{
 
 			this.scaleFactor = 1;
 
-			this.loadSettingsFromURL();
+			// this.loadSettingsFromURL();
 		}
 
 		// start rendering!
