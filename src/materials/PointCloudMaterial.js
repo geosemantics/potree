@@ -80,7 +80,7 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		// be it RGB, segment color or other.
 		this._superimposeClassification = false;
 
-		// Selected segmentation level: REDUNDANT, as we control that using activeAttributeName
+		// Selected segmentation level
 		this._segmentationLevel = 2;
 
 		this._pointSizeType = PointSizeType.FIXED;
@@ -370,9 +370,9 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			defines.push('#define segmentation_level_3');
 		} 
 		// if classification is used, we need to define the segmentation level
-		// if (this.activeAttributeName === "classification") {
-		// 	defines.push('#define segmentation_level_3');
-		// }
+		if (this.activeAttributeName === "classification") {
+			defines.push(`#define segmentation_level_${this._segmentationLevel}`);
+		}
 
 		return defines.join("\n");
 	}

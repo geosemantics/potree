@@ -1043,9 +1043,9 @@ export class Viewer extends EventDispatcher{
 	}
 	
 	loadSettingsFromURL(){
-		if(Utils.getParameterByName("pointSize")){
-			this.setPointSize(parseFloat(Utils.getParameterByName("pointSize")));
-		}
+		// if(Utils.getParameterByName("pointSize")){
+		// 	this.setPointSize(parseFloat(Utils.getParameterByName("pointSize")));
+		// }
 		
 		if(Utils.getParameterByName("FOV")){
 			this.setFOV(parseFloat(Utils.getParameterByName("FOV")));
