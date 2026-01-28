@@ -54,7 +54,7 @@
 			$("#menu_appearance").next().show();
 		});
 
-        var path = "../pointclouds/lion_takanawa.copc.laz";
+        var path = "https://storage.googleapis.com/open-cogs/planet-stac/sp-crater/3d-geofox.ai/skysat_sp-crater.colored_las_geofox.ai.copc.laz";
 		var name = "lion";
 
 		var getQueryParam = function(name) {
@@ -66,6 +66,7 @@
 		}
 
         var r = getQueryParam('r');
+		console.log(r);
         if (r) {
 			name = r;
             var http = 'http';
