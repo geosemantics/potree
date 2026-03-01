@@ -73,6 +73,8 @@ export class NodeLoader {
 
       let buffer;
 
+      // SVX: perform a second request, to fetch SegmentIDs from the segments.bin file
+
       if (byteSize === 0n) {
         buffer = new ArrayBuffer(0);
         console.warn(`loaded node with 0 bytes: ${node.name}`);
@@ -83,6 +85,7 @@ export class NodeLoader {
         });
         buffer = await response.arrayBuffer();
       }
+
 
       let workerPath;
       if (this.metadata.encoding === "BROTLI") {
@@ -109,23 +112,23 @@ export class NodeLoader {
           if (property === "position") {
             geometry.setAttribute(
               "position",
-              new THREE.BufferAttribute(new Float32Array(buffer), 3)
+              new THREE.BufferAttribute(new Float32Array(buffer), 3),
             );
           } else if (property === "rgba") {
             geometry.setAttribute(
               "rgba",
-              new THREE.BufferAttribute(new Uint8Array(buffer), 4, true)
+              new THREE.BufferAttribute(new Uint8Array(buffer), 4, true),
             );
           } else if (property === "NORMAL") {
             //geometry.setAttribute('rgba', new THREE.BufferAttribute(new Uint8Array(buffer), 4, true));
             geometry.setAttribute(
               "normal",
-              new THREE.BufferAttribute(new Float32Array(buffer), 3)
+              new THREE.BufferAttribute(new Float32Array(buffer), 3),
             );
           } else if (property === "INDICES") {
             let bufferAttribute = new THREE.BufferAttribute(
               new Uint8Array(buffer),
-              4
+              4,
             );
             bufferAttribute.normalized = true;
             geometry.setAttribute("indices", bufferAttribute);
@@ -141,7 +144,7 @@ export class NodeLoader {
           ) {
             const bufferAttribute = new THREE.BufferAttribute(
               new Float32Array(buffer),
-              1
+              1,
             );
 
             // const bufferAttribute = computeModifiedBufferAttribute(
@@ -182,7 +185,7 @@ export class NodeLoader {
           } else {
             const bufferAttribute = new THREE.BufferAttribute(
               new Float32Array(buffer),
-              1
+              1,
             );
 
             let batchAttribute = buffers[property].attribute;
@@ -196,7 +199,6 @@ export class NodeLoader {
             geometry.setAttribute(property, bufferAttribute);
           }
         }
-        // indices ??
 
         node.density = data.density;
         node.geometry = geometry;
@@ -333,7 +335,7 @@ export class NodeLoader {
     const lastSlash = this.url.lastIndexOf("/");
     const hierarchyPath = `${this.url.substring(
       0,
-      lastSlash + 1
+      lastSlash + 1,
     )}hierarchy.bin`;
     let first = hierarchyByteOffset;
     let last = first + hierarchyByteSize - 1n;
@@ -425,7 +427,7 @@ export class OctreeLoader {
       let attribute = new PointAttribute(
         potreeAttributeName,
         type,
-        numElements
+        numElements,
       );
 
       if (numElements === 1) {
@@ -473,7 +475,7 @@ export class OctreeLoader {
         return {};
       }
       throw new Error(
-        `Fetch error type: ${response.type}, status: ${response.status} ${response.statusText}`
+        `Fetch error type: ${response.type}, status: ${response.status} ${response.statusText}`,
       );
     }
     let metadata = await response.json();
@@ -508,7 +510,7 @@ export class OctreeLoader {
     octree.tightBoundingBox = boundingBox.clone();
     octree.boundingSphere = boundingBox.getBoundingSphere(new THREE.Sphere());
     octree.tightBoundingSphere = boundingBox.getBoundingSphere(
-      new THREE.Sphere()
+      new THREE.Sphere(),
     );
     octree.offset = offset;
     octree.pointAttributes = OctreeLoader.parseAttributes(metadata.attributes);
