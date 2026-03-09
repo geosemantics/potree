@@ -73,6 +73,7 @@ export class NodeLoader {
 
       let buffer;
 
+      // TODO
       // SVX: perform a second request, to fetch SegmentIDs from the segments.bin file
 
       if (byteSize === 0n) {
