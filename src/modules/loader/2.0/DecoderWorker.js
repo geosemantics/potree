@@ -20,7 +20,7 @@ Potree = {};
 
 onmessage = function (event) {
 
-	let {buffer, pointAttributes, scale, name, min, max, size, offset, numPoints} = event.data;
+	let {buffer, pointAttributes, scalarBuffer, scalarPointAttributes, scale, name, min, max, size, offset, numPoints} = event.data;
 
 	let tStart = performance.now();
 

@@ -72,9 +72,7 @@ export class NodeLoader {
       let last = byteOffset + byteSize - 1n; // 1n: verbosely use BigInt precision (num > regular Number)
 
       let buffer;
-
-      // TODO
-      // SVX: perform a second request, to fetch SegmentIDs from the segments.bin file
+      let scalarBuffers = {};
 
       if (byteSize === 0n) {
         buffer = new ArrayBuffer(0);
@@ -85,13 +83,57 @@ export class NodeLoader {
           headers,
         });
         buffer = await response.arrayBuffer();
+
+        // TODO
+        // SVX: perform additional range requests to load scalars
+        // scalars live next to the octree.bin, in /scalars/{scalar_level}.bin
+        const scalars = ["Level1", "Level2", "Level3"];
+        for (const scalar of scalars) {
+
+            // Compute scalar byte offsets
+            const bpp_octree = 31n;
+            const bpp_scalar = 2n;
+
+            const scalarFirst = (byteOffset / bpp_octree) * bpp_scalar;
+            const scalarByteSize = (byteSize / bpp_octree) * bpp_scalar;
+
+            const scalarLast = scalarFirst + scalarByteSize - 1n;
+            const scalarHeaders = { Range: `bytes=${scalarFirst}-${scalarLast}` };
+
+          // Test
+          // const idx = first/bpp_octree
+          // const scalar_idx = scalarFirst/bpp_scalar
+          // console.debug('IDX Test:', {
+          //   "idx": idx,
+          //   "scalar_idx": scalar_idx,
+          //   "scalarFirst": scalarFirst,
+          //   "scalarLast": scalarLast,
+          // });
+
+          const scalarUrl = `${this.url.substring(0, lastSlash + 1)}scalars/${scalar}.bin`;
+          const scalarResponse = await fetch(await this.signUrl(scalarUrl, scalarHeaders), {
+            headers: scalarHeaders,
+          });
+          const scalarBuffer = await scalarResponse.arrayBuffer();
+          scalarBuffers[scalar] = {
+            buffer: scalarBuffer,
+            attribute: node.octreeGeometry.pointAttributes.attributes.find(
+              (a) => a.name === scalar,
+            ),
+            offset: node.octreeGeometry.loader.offset,
+            scale: node.octreeGeometry.loader.scale,
+            preciseBuffer: true,
+          };
+        }
       }
 
 
       let workerPath;
       if (this.metadata.encoding === "BROTLI") {
+        console.debug("Using brotli decoder worker");
         workerPath = Potree.scriptPath + "/workers/2.0/DecoderWorker_brotli.js";
       } else {
+        console.debug("Using standard decoder worker");
         workerPath = Potree.scriptPath + "/workers/2.0/DecoderWorker.js";
       }
 
@@ -105,6 +147,10 @@ export class NodeLoader {
 
         let geometry = new THREE.BufferGeometry();
 
+        console.log("Buffers returned from worker:", {
+          "buffers": buffers,
+          "scalarBuffers": scalarBuffers,
+        });
         for (let property in buffers) {
           //   console.log(property);
 
@@ -201,6 +247,26 @@ export class NodeLoader {
           }
         }
 
+        // Handle properties from scalar buffers (e.g. Level1, Level2, Level3)
+        for (const scalar in scalarBuffers) {
+          const buffer = scalarBuffers[scalar].buffer;
+          const attribute = scalarBuffers[scalar].attribute;
+
+          const bufferAttribute = new THREE.BufferAttribute(
+            new Float32Array(buffer),
+            1,
+          );
+
+          bufferAttribute.potree = {
+            offset: scalarBuffers[scalar].offset,
+            scale: scalarBuffers[scalar].scale,
+            preciseBuffer: scalarBuffers[scalar].preciseBuffer,
+            // range: attribute.range,
+          };
+
+          geometry.setAttribute(scalar, bufferAttribute);
+        }
+
         node.density = data.density;
         node.geometry = geometry;
         node.loaded = true;
@@ -223,6 +289,13 @@ export class NodeLoader {
         name: node.name,
         buffer: buffer,
         pointAttributes: pointAttributes,
+        scalarBuffers: scalarBuffers,
+        scalarPointAttributes: Object.fromEntries(
+          Object.entries(scalarBuffers).map(([key, value]) => [
+            key,
+            value.attribute,
+          ]),
+        ),
         scale: scale,
         min: min,
         max: max,
@@ -230,6 +303,7 @@ export class NodeLoader {
         offset: offset,
         numPoints: numPoints,
       };
+      console.log("Posting message to worker:", message);
 
       worker.postMessage(message, [message.buffer]);
     } catch (e) {
