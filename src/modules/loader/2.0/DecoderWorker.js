@@ -20,9 +20,72 @@ Potree = {};
 
 onmessage = function (event) {
 
-	let {buffer, pointAttributes, scalarBuffer, scalarPointAttributes, scale, name, min, max, size, offset, numPoints} = event.data;
+	let {buffer, pointAttributes, scalarBuffer, scale, name, min, max, size, offset, numPoints} = event.data;
 
 	let tStart = performance.now();
+
+	// Handle scalar buffer interpolation
+	// If scalarBuffer exists, we need to interleave the scalar data with the main buffer data
+	if (scalarBuffer && scalarBuffer.attributes && scalarBuffer.attributes.length > 0) {
+		// Build set of scalar attribute names for filtering
+		let scalarNames = new Set(scalarBuffer.attributes.map(attr => attr.name));
+
+		// Calculate bytes per point for main buffer (excluding scalar attributes)
+		let mainBytesPerPoint = 0;
+		for (let pointAttribute of pointAttributes.attributes) {
+			if (!scalarNames.has(pointAttribute.name)) {
+				mainBytesPerPoint += pointAttribute.byteSize;
+			}
+		}
+
+		// Calculate bytes per point for scalar buffer
+		let scalarBytesPerPoint = 0;
+		for (let scalarAttr of scalarBuffer.attributes) {
+			scalarBytesPerPoint += scalarAttr.byteSize;
+		}
+
+		// Create new interleaved buffer
+		let totalBytesPerPoint = mainBytesPerPoint + scalarBytesPerPoint;
+		let interleavedBuffer = new ArrayBuffer(numPoints * totalBytesPerPoint);
+		let interleavedView = new Uint8Array(interleavedBuffer);
+		let mainView = new Uint8Array(buffer);
+
+		// Create views for each scalar attribute buffer
+		let scalarViews = scalarBuffer.attributes.map(attr => new Uint8Array(attr.buffer));
+
+		// Interleave data point by point
+		for (let i = 0; i < numPoints; i++) {
+			let destOffset = i * totalBytesPerPoint;
+			let srcOffset = i * mainBytesPerPoint;
+
+			// Copy main buffer data for this point
+			interleavedView.set(
+				mainView.subarray(srcOffset, srcOffset + mainBytesPerPoint),
+				destOffset
+			);
+
+			// Copy scalar buffer data for this point
+			let scalarOffset = destOffset + mainBytesPerPoint;
+			for (let j = 0; j < scalarBuffer.attributes.length; j++) {
+				let scalarAttr = scalarBuffer.attributes[j];
+				let scalarView = scalarViews[j];
+				let scalarSrcOffset = i * scalarAttr.byteSize;
+
+				interleavedView.set(
+					scalarView.subarray(scalarSrcOffset, scalarSrcOffset + scalarAttr.byteSize),
+					scalarOffset
+				);
+
+				scalarOffset += scalarAttr.byteSize;
+			}
+		}
+
+		// Replace buffer with interleaved buffer
+		buffer = interleavedBuffer;
+
+		// Note: pointAttributes already contains scalar attributes metadata from OctreeLoader
+		// We only needed to interleave the buffer data, not extend the attributes again
+	}
 
 	let view = new DataView(buffer);
 	

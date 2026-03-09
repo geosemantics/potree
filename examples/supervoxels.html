@@ -73,6 +73,55 @@
 			//);
 		});
 		
+		// Add click handler to log clicked points
+		viewer.renderer.domElement.addEventListener('click', (event) => {
+			const mouse = new THREE.Vector2();
+			const rect = viewer.renderer.domElement.getBoundingClientRect();
+			
+			mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+			mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+			
+			const camera = viewer.scene.getActiveCamera();
+			const raycaster = new THREE.Raycaster();
+			raycaster.setFromCamera(mouse, camera);
+			raycaster.params.Points.threshold = 0.1;
+			
+			const intersects = raycaster.intersectObjects(viewer.scene.pointclouds, true);
+			
+			if (intersects.length > 0) {
+				const intersection = intersects[0];
+				const pointCloud = intersection.object;
+				const geometry = pointCloud.geometry;
+				const index = intersection.index;
+				
+				console.log('Clicked point:', {
+					position: intersection.point,
+					distance: intersection.distance,
+					pointCloud: pointCloud.name,
+					index: index
+				});
+				
+				// Log all point attributes
+				if (geometry && geometry.attributes) {
+					const attributes = {};
+					
+					for (const attributeName in geometry.attributes) {
+						const attribute = geometry.attributes[attributeName];
+						const itemSize = attribute.itemSize;
+						const values = [];
+						
+						for (let i = 0; i < itemSize; i++) {
+							values.push(attribute.array[index * itemSize + i]);
+						}
+						
+						attributes[attributeName] = itemSize === 1 ? values[0] : values;
+					}
+					
+					console.log('Point attributes:', attributes);
+				}
+			}
+		});
+		
 	</script>
 	
 	
