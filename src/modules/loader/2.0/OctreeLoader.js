@@ -89,22 +89,22 @@ export class NodeLoader {
         // SVX: perform additional range requests to load scalars
         // scalars live next to the octree.bin, in /scalars/{scalar_level}.bin
         for (const scalar of registeredExternalScalars) {
-
-            // Scalar attributes have already been parsed (OctreeLoader) and are 
-            // available in node.octreeGeometry.pointAttributes
-            const scalarAttr =  node.octreeGeometry.pointAttributes.attributes.find(
+          // Scalar attributes have already been parsed (OctreeLoader) and are
+          // available in node.octreeGeometry.pointAttributes
+          const scalarAttr =
+            node.octreeGeometry.pointAttributes.attributes.find(
               (a) => a.name === scalar,
             );
 
-            // Compute scalar byte offsets
-            const bpp_octree = BigInt(this.metadata.bpp); //31n;
-            const bpp_scalar = BigInt(scalarAttr.byteSize); //2n;
+          // Compute scalar byte offsets
+          const bpp_octree = BigInt(this.metadata.bpp); //31n;
+          const bpp_scalar = BigInt(scalarAttr.byteSize); //2n;
 
-            const scalarFirst = (byteOffset / bpp_octree) * bpp_scalar;
-            const scalarByteSize = (byteSize / bpp_octree) * bpp_scalar;
+          const scalarFirst = (byteOffset / bpp_octree) * bpp_scalar;
+          const scalarByteSize = (byteSize / bpp_octree) * bpp_scalar;
 
-            const scalarLast = scalarFirst + scalarByteSize - 1n;
-            const scalarHeaders = { Range: `bytes=${scalarFirst}-${scalarLast}` };
+          const scalarLast = scalarFirst + scalarByteSize - 1n;
+          const scalarHeaders = { Range: `bytes=${scalarFirst}-${scalarLast}` };
 
           // Test
           // const idx = first/bpp_octree
@@ -115,9 +115,12 @@ export class NodeLoader {
           // });
 
           const scalarUrl = `${this.url.substring(0, lastSlash + 1)}scalars/${scalar}.bin`;
-          const scalarResponse = await fetch(await this.signUrl(scalarUrl, scalarHeaders), {
-            headers: scalarHeaders,
-          });
+          const scalarResponse = await fetch(
+            await this.signUrl(scalarUrl, scalarHeaders),
+            {
+              headers: scalarHeaders,
+            },
+          );
           const scalarBuffer = await scalarResponse.arrayBuffer();
 
           // Add to attributes array for worker
@@ -129,7 +132,6 @@ export class NodeLoader {
           });
         }
       }
-
 
       let workerPath;
       if (this.metadata.encoding === "BROTLI") {
@@ -150,9 +152,10 @@ export class NodeLoader {
 
         let geometry = new THREE.BufferGeometry();
 
-        console.log("Buffers returned from worker:", {
-          "buffers": buffers,
-        });
+        // console.debug("Buffers returned from worker:", {
+        //   "buffers": buffers,
+        // });
+
         for (let property in buffers) {
           //   console.log(property);
 
@@ -271,9 +274,12 @@ export class NodeLoader {
         name: node.name,
         buffer: buffer,
         pointAttributes: pointAttributes,
-        scalarBuffer: scalarBufferAttributes.length > 0 ? {
-          attributes: scalarBufferAttributes
-        } : null,
+        scalarBuffer:
+          scalarBufferAttributes.length > 0
+            ? {
+                attributes: scalarBufferAttributes,
+              }
+            : null,
         scale: scale,
         min: min,
         max: max,
@@ -281,7 +287,7 @@ export class NodeLoader {
         offset: offset,
         numPoints: numPoints,
       };
-      console.log("Posting message to worker:", message);
+      // console.log("Posting message to worker:", message);
 
       worker.postMessage(message, [message.buffer]);
     } catch (e) {
@@ -534,13 +540,14 @@ export class OctreeLoader {
     let metadata = await response.json();
 
     let attributes = OctreeLoader.parseAttributes(metadata.attributes);
-    let scalarAttributes = OctreeLoader.parseAttributes(metadata.scalarAttributes || []);
+    let scalarAttributes = OctreeLoader.parseAttributes(
+      metadata.scalarAttributes || [],
+    );
 
-    console.debug("Parsed metadata:", metadata);
-    console.debug("Parsed attributes:", attributes);
-    console.debug("Parsed scalar attributes:", scalarAttributes);
+    // console.debug("[OctreeLoader] Parsed metadata:", metadata);
+    // console.debug("[OctreeLoader] Parsed attributes:", attributes);
+    // console.debug("[OctreeLoader] Parsed scalar attributes:", scalarAttributes);
 
-    // console.log("Ooctree loader | attrs:", attributes);
     let loader = new NodeLoader(url, signUrl);
     loader.metadata = metadata;
     loader.attributes = attributes;
@@ -574,7 +581,10 @@ export class OctreeLoader {
     octree.offset = offset;
 
     // Compose point attributes from octree attributes and scalar attributes
-    const composedAttributes = [...metadata.attributes, ...(metadata.scalarAttributes || [])];
+    const composedAttributes = [
+      ...metadata.attributes,
+      ...(metadata.scalarAttributes || []),
+    ];
     octree.pointAttributes = OctreeLoader.parseAttributes(composedAttributes);
 
     octree.loader = loader;
