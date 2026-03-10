@@ -469,35 +469,35 @@ int imod(int a, int b) {
 vec4 getClassification(){
 
 	// if define classification_raw is used, use the point's classification value
-	// #ifdef classification_raw
-	// 	vec2 uv = vec2(classification / 255.0, 0.5);
-	// 	vec4 classColor = texture2D(classificationLUT, uv);
-	// 	return classColor;
-
+	#ifdef classification_raw
+		vec2 uv = vec2(classification / 255.0, 0.5);
+		vec4 classColor = texture2D(classificationLUT, uv);
+		return classColor;
+		
 	// Use color based on segment id
-	// #else
-	float segmentation = getSegmentationValue();
+	#else
+		float segmentation = getSegmentationValue();
 
-	// Convert to integer ID
-	int id = int(segmentation);
+		// Convert to integer ID
+		int id = int(segmentation);
 
-	// Compute (x, y) index in 2D texture 
-	int x = imod(id, 256);
-	int y = id / 256;
-	
-	// Convert to normalized UV coords
-	vec2 uv = vec2(
-		(float(x) + 0.5) / 256.0,
-		(float(y) + 0.5) / 256.0
-	);
-	vec4 classColor = texture2D(classificationLUT, uv);
+		// Compute (x, y) index in 2D texture 
+		int x = imod(id, 256);
+		int y = id / 256;
 
-	// // If classification does not exist, use white
-	// if(classColor.a == 0.0){
-	// 	classColor = vec4(1.0);
-	// }
-	return classColor;
-	// #endif
+		// Convert to normalized UV coords
+		vec2 uv = vec2(
+			(float(x) + 0.5) / 256.0,
+			(float(y) + 0.5) / 256.0
+		);
+		vec4 classColor = texture2D(classificationLUT, uv);
+
+		// // If classification does not exist, use white
+		// if(classColor.a == 0.0){
+		// 	classColor = vec4(1.0);
+		// }
+		return classColor;
+	#endif
 
 }
 

@@ -231,6 +231,20 @@ export class PropertiesPanel{
 					<li>Contrast: <span id="lblIntensityContrast"></span> <div id="sldIntensityContrast"></div>	</li>
 				</div>
 
+				<div id="materials.classification_container">
+					<div class="divider">
+						<span>Classification</span>
+					</div>
+
+					<li>
+						<span>Classification Source:</span>
+						<selectgroup id="classification_style_option">
+							<option id="classification_style_from_segment" value="from_segment">From Segmentation</option>
+							<option id="classification_style_raw" value="raw">From Point Data</option>
+						</selectgroup>
+					</li>
+				</div>
+
 				<div id="materials.gpstime_container">
 					<div class="divider">
 						<span>GPS Time</span>
@@ -487,6 +501,7 @@ export class PropertiesPanel{
 				let blockTransition = $('#materials\\.transition_container');
 				let blockGps = $('#materials\\.gpstime_container');
 				let blockMatcap = $('#materials\\.matcap_container');
+				let blockClassification = $('#materials\\.classification_container');
 
 				blockIndex.css('display', 'none');
 				blockIntensity.css('display', 'none');
@@ -498,6 +513,7 @@ export class PropertiesPanel{
 				blockTransition.css('display', 'none');
 				blockMatcap.css('display', 'none');
 				blockGps.css('display', 'none');
+				blockClassification.css('display', 'none');
 
 				if (selectedValue === 'composite') {
 					blockWeights.css('display', 'block');
@@ -522,7 +538,7 @@ export class PropertiesPanel{
 				} else if (selectedValue === "matcap" ){
 					blockMatcap.css('display', 'block');
 				} else if (selectedValue === "classification" ){
-					// add classification color selctor?
+					blockClassification.css('display', 'block');
 				} else if (selectedValue === "gps-time" ){
 					blockGps.css('display', 'block');
 				} else if(selectedValue === "number of returns"){
@@ -844,6 +860,18 @@ export class PropertiesPanel{
 				let current = Object.keys(ElevationGradientRepeat)
 					.filter(key => ElevationGradientRepeat[key] === this.viewer.elevationGradientRepeat);
 				elGradientRepeat.find(`input[value=${current}]`).trigger("click");
+			}
+
+			{
+				let elClassificationStyle = panel.find("#classification_style_option");
+				elClassificationStyle.selectgroup({title: "Classification Source"});
+
+				elClassificationStyle.find("input").click( (e) => {
+					material.classificationStyle = e.target.value;
+				});
+
+				let current = material.classificationStyle;
+				elClassificationStyle.find(`input[value=${current}]`).trigger("click");
 			}
 
 			let onIntensityChange = () => {
