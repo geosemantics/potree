@@ -6,33 +6,8 @@ import {
 } from "../../../loader/PointAttributes.js";
 import { OctreeGeometry, OctreeGeometryNode } from "./OctreeGeometry.js";
 
-/**
- * @param {Object} buffers: the buffers returned by the worker
- * @param {*} property: the property to compute a derivative BufferAttribute for
- * @param {*} baseProperty: the property to use as base for the modification
- * @param {*} fn : the function to apply to the base property buffer value
- * @returns {BufferAttribute} : the modified BufferAttribute, ready to be passed to THREE.BufferGeometry.setAttribute
- * @example
- * let modifiedAttribute = computeModifiedBufferAttribute(buffers, prop, otherProp, (value) => value * 2);
- */
-function computeModifiedBufferAttribute(buffers, attribute, baseAttribute, fn) {
-  const attrBuffer = buffers[attribute].buffer;
-  const baseBuffer = buffers[baseAttribute].buffer;
-
-  const attrArray = new Float32Array(attrBuffer);
-  const baseArray = new Float32Array(baseBuffer);
-
-  const modifiedArray = new Float32Array(attrArray.length);
-  for (let i = 0; i < attrArray.length; i++) {
-    modifiedArray[i] = fn(baseArray[i]);
-  }
-
-  const modifiedBufferAttribute = new THREE.BufferAttribute(modifiedArray, 1);
-  return modifiedBufferAttribute;
-}
 
 // let loadedNodes = new Set();
-
 export class NodeLoader {
   constructor(url, signUrl) {
     this.url = url;
@@ -131,14 +106,15 @@ export class NodeLoader {
             attribute: scalarAttr,
           });
         }
+        // ---- end SVX scalar loading logic ----
       }
 
       let workerPath;
       if (this.metadata.encoding === "BROTLI") {
-        console.debug("Using brotli decoder worker");
+        // console.debug("Using brotli decoder worker");
         workerPath = Potree.scriptPath + "/workers/2.0/DecoderWorker_brotli.js";
       } else {
-        console.debug("Using standard decoder worker");
+        // console.debug("Using standard decoder worker");
         workerPath = Potree.scriptPath + "/workers/2.0/DecoderWorker.js";
       }
 
@@ -152,13 +128,8 @@ export class NodeLoader {
 
         let geometry = new THREE.BufferGeometry();
 
-        // console.debug("Buffers returned from worker:", {
-        //   "buffers": buffers,
-        // });
 
         for (let property in buffers) {
-          //   console.log(property);
-
           let buffer = buffers[property].buffer;
 
           if (property === "position") {
@@ -184,7 +155,9 @@ export class NodeLoader {
             );
             bufferAttribute.normalized = true;
             geometry.setAttribute("indices", bufferAttribute);
-          } else if (
+          } 
+          // SVX custom attr parsing
+          else if (
             [
               "Level1",
               "Level2",
@@ -199,15 +172,6 @@ export class NodeLoader {
               1,
             );
 
-            // const bufferAttribute = computeModifiedBufferAttribute(
-            //   buffers,
-            //   property,
-            //   "classification",
-            //   (value) => {
-            //     return value * 2;
-            //   }
-            // );
-
             let batchAttribute = buffers[property].attribute;
             bufferAttribute.potree = {
               offset: buffers[property].offset,
@@ -216,7 +180,7 @@ export class NodeLoader {
               range: batchAttribute.range,
             };
 
-            // Slopemanager: Multiple segmentation levels are computed, but only one is chosen
+            // SVX: Multiple segmentation levels are computed, but only one is chosen
             // as the segmentation basis. Here we map the chosen segmentation attribute to the
             // "segmentation" property.
             // Map either of "segmentation 1", "segmentation 2" to "segmentation"
@@ -580,12 +544,14 @@ export class OctreeLoader {
     );
     octree.offset = offset;
 
-    // Compose point attributes from octree attributes and scalar attributes
+    // SVX: Compose point attributes from octree attributes and scalar attributes
     const composedAttributes = [
       ...metadata.attributes,
       ...(metadata.scalarAttributes || []),
     ];
     octree.pointAttributes = OctreeLoader.parseAttributes(composedAttributes);
+    // ORIGINAL: octree.pointAttributes = OctreeLoader.parseAttributes(metadata.attributes);
+
 
     octree.loader = loader;
 
