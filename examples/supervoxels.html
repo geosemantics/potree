@@ -58,7 +58,7 @@
 			viewer.toggleSidebar();
 		});
 		
-		Potree.loadPointCloud("http://127.0.0.1:8000/metadata.json", "SVX-PLOMARI", function(e){
+		Potree.loadPointCloud("/pointclouds/svx-plomari/metadata.json", "SVX-PLOMARI", function(e){
 			viewer.scene.addPointCloud(e.pointcloud);
 			e.pointcloud.position.z = 0;
 			let material = e.pointcloud.material;

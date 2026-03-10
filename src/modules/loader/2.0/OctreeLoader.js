@@ -49,8 +49,6 @@ export class NodeLoader {
       let buffer;
       let scalarBufferAttributes = [];
 
-      const registeredExternalScalars = ["Level1", "Level2", "Level3"];
-
       if (byteSize === 0n) {
         buffer = new ArrayBuffer(0);
         console.warn(`loaded node with 0 bytes: ${node.name}`);
@@ -63,7 +61,7 @@ export class NodeLoader {
 
         // SVX: perform additional range requests to load scalars
         // scalars live next to the octree.bin, in /scalars/{scalar_level}.bin
-        for (const scalar of registeredExternalScalars) {
+        for (const scalar of this.registeredExternalScalars) {
           // Scalar attributes have already been parsed (OctreeLoader) and are
           // available in node.octreeGeometry.pointAttributes
           const scalarAttr =
@@ -504,6 +502,7 @@ export class OctreeLoader {
     let metadata = await response.json();
 
     let attributes = OctreeLoader.parseAttributes(metadata.attributes);
+    // SVX: Parse scalar attributes as well, if they exist. These will be loaded via separate range requests in NodeLoader.load()
     let scalarAttributes = OctreeLoader.parseAttributes(
       metadata.scalarAttributes || [],
     );
@@ -515,9 +514,17 @@ export class OctreeLoader {
     let loader = new NodeLoader(url, signUrl);
     loader.metadata = metadata;
     loader.attributes = attributes;
+    // SVX: Store scalar attributes in loader for access in NodeLoader.load()
     loader.scalarAttributes = scalarAttributes;
     loader.scale = metadata.scale;
     loader.offset = metadata.offset;
+
+    // SVX: Pass registered scalar attributes to loader as well, for access in NodeLoader.load()
+    const registeredExternalScalars = metadata.scalarAttributes
+      ? metadata.scalarAttributes.map((attr) => attr.name)
+      : [];
+    console.debug("[OctreeLoader] Registered external scalar attributes:", registeredExternalScalars);
+    loader.registeredExternalScalars = registeredExternalScalars;
 
     let octree = new OctreeGeometry();
     octree.url = url;
