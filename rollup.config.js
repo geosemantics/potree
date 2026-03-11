@@ -1,26 +1,15 @@
 export default [
 	{
-		input: 'src/Potree.js',
+		// SVX: use SVXPotreeBundle as the entry so SVX classes are included in
+		// the main potree.js build (fixes the exports.debug error that occurred
+		// when SVXPotreeRenderer was in a separate svx.js bundle).
+		input: 'src/svx/SVXPotreeBundle.js',
 		treeshake: false,
 		output: {
 			file: 'build/potree/potree.js',
 			format: 'umd',
 			name: 'Potree',
 			sourcemap: true,
-		}
-	},{
-		// SVX: SVX extension bundle — exposes all SVX classes as window.SVX
-		input: 'src/svx/SVXPotree.js',
-		treeshake: false,
-		output: {
-			file: 'build/potree/svx.js',
-			format: 'umd',
-			name: 'SVX',
-			sourcemap: true,
-			globals: {
-				// Assume THREE and Potree are already loaded as globals
-				'../../libs/three.js/build/three.module.js': 'THREE',
-			}
 		}
 	},{
 		input: 'src/workers/BinaryDecoderWorker.js',

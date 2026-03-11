@@ -27,7 +27,6 @@
 <script src="../libs/i18next/i18next.js"></script>
 <script src="../libs/jstree/jstree.js"></script>
 <script src="../build/potree/potree.js"></script>
-<script src="../build/potree/svx.js"></script>
 <script src="../libs/plasio/js/laslaz.js"></script>
 <script src="../libs/other/stats.js"></script>
 
@@ -43,14 +42,16 @@ import * as THREE from "../libs/three.js/build/three.module.js";
 /**
  * SVX Supervoxels Example
  *
+ * All SVX classes are now part of the main Potree bundle (potree.js).
+ * No separate svx.js is needed.
+ *
  * Demonstrates:
- *  - SVXViewer: extends Potree Viewer with segmentation support
- *  - loadSVXPointCloud: loads point cloud with external scalar attributes
- *  - SVXPointCloudMaterial: segment-based classification rendering
+ *  - Potree.SVXViewer: extends Viewer with segmentation support
+ *  - Potree.loadSVXPointCloudAsync: loads point cloud with external scalar attributes
+ *  - Potree.SVXPointCloudMaterial: segment-based classification rendering
  */
 
-// Use SVXViewer (adds segmentation support, disables URL settings)
-window.viewer = new SVX.SVXViewer(document.getElementById("potree_render_area"));
+window.viewer = new Potree.SVXViewer(document.getElementById("potree_render_area"));
 
 viewer.setEDLEnabled(true);
 viewer.setFOV(60);
@@ -64,7 +65,7 @@ viewer.toggleSidebar();
 });
 
 // Use SVX loader (supports scalar attributes in metadata.scalarAttributes)
-SVX.loadSVXPointCloudAsync("/pointclouds/svx-plomari/metadata.json", "SVX-PLOMARI")
+Potree.loadSVXPointCloudAsync("/pointclouds/svx-plomari/metadata.json", "SVX-PLOMARI")
 .then(e => {
 viewer.scene.addPointCloud(e.pointcloud);
 

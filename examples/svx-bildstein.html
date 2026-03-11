@@ -27,7 +27,6 @@
 <script src="../libs/i18next/i18next.js"></script>
 <script src="../libs/jstree/jstree.js"></script>
 <script src="../build/potree/potree.js"></script>
-<script src="../build/potree/svx.js"></script>
 <script src="../libs/plasio/js/laslaz.js"></script>
 <script src="../libs/other/stats.js"></script>
 
@@ -43,26 +42,29 @@ import * as THREE from "../libs/three.js/build/three.module.js";
 /**
  * SVX Classification Example (Bildstein)
  *
+ * All SVX classes are now part of the main Potree bundle (potree.js).
+ * No separate svx.js is needed.
+ *
  * Demonstrates:
- *  - SVXViewer: extends Potree Viewer with segmentation support
- *  - SVXPointCloudMaterial.classificationStyle = "raw" (use per-point classification)
- *  - SVXClassificationScheme: custom SVX classification palette
+ *  - Potree.SVXViewer: extends Viewer with segmentation support
+ *  - Potree.SVXPointCloudMaterial.classificationStyle = "raw"
+ *  - Potree.SVXClassificationScheme: custom SVX classification palette
  */
 
-window.viewer = new SVX.SVXViewer(document.getElementById("potree_render_area"));
+window.viewer = new Potree.SVXViewer(document.getElementById("potree_render_area"));
 
 viewer.setEDLEnabled(true);
 viewer.setFOV(60);
 viewer.setPointBudget(5_000_000);
 
-viewer.setDescription("SVX classification example — classificationStyle: 'raw'");
+viewer.setDescription("SVX classification example - classificationStyle: 'raw'");
 
 viewer.loadGUI().then(() => {
 viewer.setLanguage("en");
 viewer.toggleSidebar();
 });
 
-SVX.loadSVXPointCloudAsync("/pointclouds/bildstein/metadata.json", "BILDSTEIN")
+Potree.loadSVXPointCloudAsync("/pointclouds/bildstein/metadata.json", "BILDSTEIN")
 .then(e => {
 window.pco = e.pointcloud;
 viewer.scene.addPointCloud(e.pointcloud);
