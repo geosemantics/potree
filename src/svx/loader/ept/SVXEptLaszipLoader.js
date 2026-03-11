@@ -5,8 +5,8 @@
  * authenticated URL fetching.
  */
 
-import { EptLaszipLoader } from "../../loader/ept/LaszipLoader.js";
-import { XHRFactory } from "../../XHRFactory.js";
+import { EptLaszipLoader } from "../../../loader/ept/LaszipLoader.js";
+import { XHRFactory } from "../../../XHRFactory.js";
 
 export class SVXEptLaszipLoader extends EptLaszipLoader {
 	async load(node) {

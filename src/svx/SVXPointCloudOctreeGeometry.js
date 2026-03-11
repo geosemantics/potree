@@ -12,7 +12,7 @@
 import {
 PointCloudOctreeGeometry,
 PointCloudOctreeGeometryNode,
-} from "../../PointCloudOctreeGeometry.js";
+} from "../PointCloudOctreeGeometry.js";
 
 export class SVXPointCloudOctreeGeometry extends PointCloudOctreeGeometry {
 constructor(url, signUrl) {

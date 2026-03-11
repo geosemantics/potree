@@ -4,8 +4,8 @@
  * Extends EptBinaryLoader to use signUrl for authenticated URL fetching.
  */
 
-import { EptBinaryLoader } from "../../loader/ept/BinaryLoader.js";
-import { XHRFactory } from "../../XHRFactory.js";
+import { EptBinaryLoader } from "../../../loader/ept/BinaryLoader.js";
+import { XHRFactory } from "../../../XHRFactory.js";
 
 export class SVXEptBinaryLoader extends EptBinaryLoader {
 	async load(node) {

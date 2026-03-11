@@ -12,7 +12,7 @@
  * exposes the `classificationStyle` setter).
  */
 
-import { PropertiesPanel } from "../../viewer/PropertyPanels/PropertiesPanel.js";
+import { PropertiesPanel } from "../../../viewer/PropertyPanels/PropertiesPanel.js";
 
 export class SVXPropertiesPanel extends PropertiesPanel {
 	constructor(container, viewer) {

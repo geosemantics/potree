@@ -9,14 +9,14 @@
  *  - Composed point attributes (octree + scalar attributes from metadata)
  */
 
-import * as THREE from "../../../../libs/three.js/build/three.module.js";
+import * as THREE from "../../../../../libs/three.js/build/three.module.js";
 import {
 	PointAttribute,
 	PointAttributes,
 	PointAttributeTypes,
-} from "../../../loader/PointAttributes.js";
-import { OctreeGeometry, OctreeGeometryNode } from "../../../modules/loader/2.0/OctreeGeometry.js";
-import { NodeLoader, OctreeLoader } from "../../../modules/loader/2.0/OctreeLoader.js";
+} from "../../../../loader/PointAttributes.js";
+import { OctreeGeometry, OctreeGeometryNode } from "../../../../modules/loader/2.0/OctreeGeometry.js";
+import { NodeLoader, OctreeLoader } from "../../../../modules/loader/2.0/OctreeLoader.js";
 
 // ---------------------------------------------------------------------------
 // SVXNodeLoader
