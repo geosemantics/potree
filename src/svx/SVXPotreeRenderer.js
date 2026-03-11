@@ -1,9 +1,21 @@
+/**
+ * SVXPotreeRenderer
+ *
+ * SVX-specific copy of PotreeRenderer.js with the following additions:
+ *  - segmentation1 / segmentation2 / segmentation3 vertex attribute locations
+ *    added to the module-level attributeLocations map (locations 11–13, pushing
+ *    aExtra from 11 to 14)
+ *  - Segmentation texture (segmentationLUT) binding in renderOctree()
+ *
+ * This file is a direct copy of src/PotreeRenderer.js.
+ * Only the lines marked "SVX:" have been changed.
+ */
 
-import * as THREE from "../libs/three.js/build/three.module.js";
-import {PointCloudTree} from "./PointCloudTree.js";
-import {PointCloudOctreeNode} from "./PointCloudOctree.js";
-import {PointCloudArena4DNode} from "./arena4d/PointCloudArena4D.js";
-import {PointSizeType, ClipTask, ElevationGradientRepeat} from "./defines.js";
+import * as THREE from "../../libs/three.js/build/three.module.js";
+import {PointCloudTree} from "../PointCloudTree.js";
+import {PointCloudOctreeNode} from "../PointCloudOctree.js";
+import {PointCloudArena4DNode} from "../arena4d/PointCloudArena4D.js";
+import {PointSizeType, ClipTask, ElevationGradientRepeat} from "../defines.js";
 
 // Copied from three.js: WebGLRenderer.js
 function paramThreeToGL(_gl, p) {
@@ -150,7 +162,11 @@ let attributeLocations = {
 	"normal": {name: "normal", location: 8},
 	"spacing": {name: "spacing", location: 9},
 	"gps-time":  {name: "gpsTime", location: 10},
-	"aExtra":  {name: "aExtra", location: 11},
+	// SVX: segmentation attribute locations (pushed aExtra from 11 to 14)
+	"segmentation1":  {name: "segmentation1", location: 11},
+	"segmentation2":  {name: "segmentation2", location: 12},
+	"segmentation3":  {name: "segmentation3", location: 13},
+	"aExtra":  {name: "aExtra", location: 14},
 };
 
 class Shader {
@@ -857,7 +873,6 @@ export class Renderer {
 
 			const geometry = node.geometryNode.geometry;
 
-			if (!geometry) console.log('Missing geometry', node)
 			if(geometry.attributes["gps-time"]){
 				const bufferAttribute = geometry.attributes["gps-time"];
 				const attGPS = octree.getAttribute("gps-time");
@@ -1362,6 +1377,17 @@ export class Renderer {
 			gl.activeTexture(gl.TEXTURE0 + currentTextureBindingPoint);
 			gl.bindTexture(classificationTexture.target, classificationTexture.id);
 			currentTextureBindingPoint++;
+
+			// SVX: bind segmentation LUT texture (only present on SVXPointCloudMaterial)
+			if (material.segmentationTexture) {
+				let segmentationTexture = this.textures.get(material.segmentationTexture);
+				if (segmentationTexture) {
+					shader.setUniform1i("segmentationLUT", currentTextureBindingPoint);
+					gl.activeTexture(gl.TEXTURE0 + currentTextureBindingPoint);
+					gl.bindTexture(segmentationTexture.target, segmentationTexture.id);
+					currentTextureBindingPoint++;
+				}
+			}
 
 			let matcapTexture = this.textures.get(material.matcapTexture);
 			shader.setUniform1i("matcapTextureUniform", currentTextureBindingPoint);

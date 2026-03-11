@@ -73,6 +73,9 @@ let shaders = [
 	"src/materials/shaders/edl.fs",
 	"src/materials/shaders/blur.vs",
 	"src/materials/shaders/blur.fs",
+	// SVX shaders
+	"src/svx/materials/shaders/svx-pointcloud.vs",
+	"src/svx/materials/shaders/svx-pointcloud.fs",
 ];
 
 // For development, it is now possible to use 'gulp webserver'
@@ -171,6 +174,9 @@ gulp.task('build',
 			gulp.src(paths.resources).pipe(gulp.dest('build/potree/resources'));
 
 			gulp.src(["LICENSE"]).pipe(gulp.dest('build/potree'));
+
+			// SVX: copy SVX CSS to build
+			gulp.src(["src/svx/viewer/svx-potree.css"]).pipe(gulp.dest('build/potree'));
 
 			done();
 		}

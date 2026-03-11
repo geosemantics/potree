@@ -4,7 +4,6 @@ import {Utils} from "../utils.js";
 import {Gradients} from "./Gradients.js";
 import {Shaders} from "../../build/shaders/shaders.js";
 import {ClassificationScheme} from "./ClassificationScheme.js";
-import {SegmentationScheme} from "./SegmentationScheme.js";
 import {PointSizeType, PointShape, TreeType, ElevationGradientRepeat} from "../defines.js";
 
 //
@@ -12,37 +11,6 @@ import {PointSizeType, PointShape, TreeType, ElevationGradientRepeat} from "../d
 // http://stackoverflow.com/questions/21648630/radius-of-projected-sphere-in-screen-space
 // http://stackoverflow.com/questions/3717226/radius-of-projected-sphere
 //
-
-function createClassificationTextureMap() {
-	const maxTexSize = 8192; // webgl max texture size (MAX_TEXTURE_SIZE, usually 4096 or 8192)
-
-	// For 65536 entries, pick a square-ish texture
-	const texWidth = 256;
-	const texHeight = 256;
-
-	// Make sure data array is correct length (RGB per segment)
-	const colorData = new Uint8Array(texWidth * texHeight * 4); // RGBA
-	for (let i = 0; i < texWidth * texHeight; i++) {
-		// Set default color to white
-		colorData[i * 4 + 0] = 0; // R
-		colorData[i * 4 + 1] = 0; // G
-		colorData[i * 4 + 2] = 0; // B
-		colorData[i * 4 + 3] = 1; // A
-	}
-	// Create DataTexture
-	const classColorTex = new THREE.DataTexture(
-	    colorData,
-	    texWidth,
-	    texHeight,
-	    THREE.RGBAFormat
-	);
-
-	classColorTex.minFilter = THREE.NearestFilter;
-	classColorTex.magFilter = THREE.NearestFilter;
-	classColorTex.needsUpdate = true;
-
-	return classColorTex;
-}
 
 
 export class PointCloudMaterial extends THREE.RawShaderMaterial {
@@ -65,23 +33,6 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		let minSize = getValid(parameters.minSize, 2.0);
 		let maxSize = getValid(parameters.maxSize, 50.0);
 		let treeType = getValid(parameters.treeType, TreeType.OCTREE);
-
-		// Source classification attribute:
-		//  - from point's data, or
-		//  - compute if from segment based on user assignation, or
-		//  - show segmentation color if no user assigned class is available else show user assigned class
-		this._classificationStyle = "from_segment" // "from_segment" | "raw" | "mixed"
-
-		// Selected segment id: default none
-		this._selectedSegmentId = -1;
-
-		// Superimpose Classification
-		// When true, the classification color is superimposed on the point color,
-		// be it RGB, segment color or other.
-		this._superimposeClassification = false;
-
-		// Selected segmentation level
-		this._segmentationLevel = 2;
 
 		this._pointSizeType = PointSizeType.FIXED;
 		this._shape = PointShape.SQUARE;
@@ -106,26 +57,14 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		this._defaultIntensityRangeChanged = false;
 		this._defaultElevationRangeChanged = false;
 
-		//  Classification texture: classification is a UInt16 integer,
-		// so we use a 16-bit texture, with range [0, 65535].
-		{
-			// const [width, height] = [65536, 1];
-			// let data = new Uint8Array(width * 4);
-			// let texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat);
-			// texture.magFilter = THREE.NearestFilter;
-			// texture.needsUpdate = true;
-			const texture = createClassificationTextureMap();
-
-			this.classificationTexture = texture;
-		}
 		{
 			const [width, height] = [256, 1];
-			let sgdata = new Uint8Array(width * 4);
-			let sgtexture = new THREE.DataTexture(sgdata, width, height, THREE.RGBAFormat);
-			sgtexture.magFilter = THREE.NearestFilter;
-			sgtexture.needsUpdate = true;
+			let data = new Uint8Array(width * 4);
+			let texture = new THREE.DataTexture(data, width, height, THREE.RGBAFormat);
+			texture.magFilter = THREE.NearestFilter;
+			texture.needsUpdate = true;
 
-			this.segmentationTexture = sgtexture;
+			this.classificationTexture = texture;
 		}
 
 		this.attributes = {
@@ -134,13 +73,10 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			normal: { type: 'fv', value: [] },
 			intensity: { type: 'f', value: [] },
 			classification: { type: 'f', value: [] },
-			segmentation1: { type: 'f', value: [] },
-			segmentation2: { type: 'f', value: [] },
-			segmentation3: { type: 'f', value: [] },
 			returnNumber: { type: 'f', value: [] },
 			numberOfReturns: { type: 'f', value: [] },
 			pointSourceID: { type: 'f', value: [] },
-			indices: { type: 'fv', value: [] },
+			indices: { type: 'fv', value: [] }
 		};
 
 		this.uniforms = {
@@ -176,13 +112,12 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			pcIndex:			{ type: "f", value: 0 },
 			gradient:			{ type: "t", value: this.gradientTexture },
 			classificationLUT:	{ type: "t", value: this.classificationTexture },
-			segmentationLUT:	{ type: "t", value: this.segmentationTexture },
 			uHQDepthMap:		{ type: "t", value: null },
 			toModel:			{ type: "Matrix4f", value: [] },
 			diffuse:			{ type: "fv", value: [1, 1, 1] },
 			transition:			{ type: "f", value: 0.5 },
 
-			intensityRange:		{ type: "fv", value: [Infinity, -Infinity] },
+			 intensityRange:		{ type: "fv", value: [Infinity, -Infinity] },
 
 			intensity_gbc: 		{ type: "fv", value: [1, 0, 0]},
 			uRGB_gbc:	 		{ type: "fv", value: [1, 0, 0]},
@@ -195,8 +130,7 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			wRGB:				{ type: "f", value: 1 },
 			wIntensity:			{ type: "f", value: 0 },
 			wElevation:			{ type: "f", value: 0 },
-			wClassification:	{ type: "f", value: 0.7 },
-			wSegmentation:		{ type: "f", value: 0 },
+			wClassification:	{ type: "f", value: 0 },
 			wReturnNumber:		{ type: "f", value: 0 },
 			wSourceID:			{ type: "f", value: 0 },
 			useOrthographicCamera: { type: "b", value: false },
@@ -219,7 +153,6 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		};
 
 		this.classification = ClassificationScheme.DEFAULT;
-		this.segmentation = SegmentationScheme.DEFAULT;
 
 		this.defaultAttributeValues.normal = [0, 0, 0];
 		this.defaultAttributeValues.classification = [0, 0, 0];
@@ -294,25 +227,10 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		}
 
 		this.needsUpdate = true;
-		// console.log(fs)
 	}
 
 	getDefines () {
 		let defines = [];
-
-		if (this._classificationStyle === "raw") {
-			// 1. Use classification attribute from point's data
-			defines.push('#define classification_raw');
-		} else if (this._classificationStyle === "from_segment") {
-			// 2. Compute classification from segment
-			defines.push('#define classification_from_segment');
-		} 
-		// else if (this._classificationStyle === "mixed") {
-		// 	// NOT WORKING
-		// 	// 3. Show segmentation color if no user assigned class 
-		// 	// is available else show user assigned class
-		// 	defines.push('#define classification_mixed');
-		// }
 
 		if (this.pointSizeType === PointSizeType.FIXED) {
 			defines.push('#define fixed_point_size');
@@ -352,26 +270,6 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 
 		for(let [key, value] of this.defines){
 			defines.push(value);
-		}
-
-		if (this._selectedSegmentId !== -1) {
-			defines.push('#define selected_segment_id ' + this._selectedSegmentId);
-		}
-
-		if (this._superimposeClassification) {
-			defines.push('#define superimpose_classification');
-		}
-
-		if ( this.activeAttributeName === "segmentation1") {
-			defines.push('#define segmentation_level_1');
-		} else if ( this.activeAttributeName === "segmentation2") {
-			defines.push('#define segmentation_level_2');
-		} else if ( this.activeAttributeName === "segmentation3") {
-			defines.push('#define segmentation_level_3');
-		} 
-		// if classification is used, we need to define the segmentation level
-		if (this.activeAttributeName === "classification") {
-			defines.push(`#define segmentation_level_${this._segmentationLevel}`);
 		}
 
 		return defines.join("\n");
@@ -463,71 +361,11 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		}
 	}
 
-	get selectedSegment () {
-		return this._selectedSegmentId;
-	}
-	selectSegment(segmentId) {
-		if (this._selectedSegmentId !== segmentId) {
-			this._selectedSegmentId = segmentId;
-			this.updateShaderSource();
-		}
-	}
-	unselectSegment() {
-		if (this._selectedSegmentId !== -1) {
-			this._selectedSegmentId = -1;
-			this.updateShaderSource();
-		}
-	}
-
-	setSuperimposeClassification(value) {
-		if (this._superimposeClassification !== value) {
-			// check boolean
-			if (typeof value !== 'boolean') {
-				console.warn('Invalid value for superimposeClassification. Expected boolean.');
-				return;
-			}
-			this._superimposeClassification = value;
-			this.updateShaderSource();
-		}
-	}
-
-	setSegmentationLevel(level) {
-		if (this._segmentationLevel !== level) {
-			this._segmentationLevel = level;
-			this.updateShaderSource();
-		}
-	}
-
-	get classificationStyle () {
-		return this._classificationStyle;
-	}
-
-	set classificationStyle (value) {
-		if (this._classificationStyle !== value) {
-			this._classificationStyle = value;
-			this.updateShaderSource();
-		}
-	}
-
-	// setSegmentColor ( index, color, visible = true ) {
-	// 	if (this.classification[index] === undefined) {
-	// 		this.classification[index] = {
-	// 			color: color,
-	// 			visible: visible
-	// 		};
-	// 	}
-	// 	else {
-	// 		this.classification[index].color = color;
-	// 		this.classification[index].visible = visible;
-	// 	}
-	// 	this.recomputeClassification();
-	// }
-
 	recomputeClassification () {
 		const classification = this.classification;
 		const data = this.classificationTexture.image.data;
 
-		let width = 65536; // 65536 for 16-bit classification
+		let width = 256;
 		const black = [1, 1, 1, 1];
 
 		let valuesChanged = false;
@@ -579,71 +417,6 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 
 		if(valuesChanged){
 			this.classificationTexture.needsUpdate = true;
-
-			this.dispatchEvent({
-				type: 'material_property_changed',
-				target: this
-			});
-		}
-	}
-
-
-	recomputeSegmentation () {
-		const segmentation = this.segmentation;
-		const data = this.segmentationTexture.image.data;
-
-		let width = 256;
-		const black = [1, 1, 1, 1];
-
-		let valuesChanged = false;
-
-		for (let i = 0; i < width; i++) {
-
-			let color;
-			let visible = true;
-
-			if (segmentation[i]) {
-				color = segmentation[i].color;
-				visible = segmentation[i].visible;
-			} else if (segmentation[i % 32]) {
-				color = segmentation[i % 32].color;
-				visible = segmentation[i % 32].visible;
-			} else if(segmentation.DEFAULT) {
-				color = segmentation.DEFAULT.color;
-				visible = segmentation.DEFAULT.visible;
-			}else{
-				color = black;
-			}
-
-			const r = parseInt(255 * color[0]);
-			const g = parseInt(255 * color[1]);
-			const b = parseInt(255 * color[2]);
-			const a = visible ? parseInt(255 * color[3]) : 0;
-
-
-			if(data[4 * i + 0] !== r){
-				data[4 * i + 0] = r;
-				valuesChanged = true;
-			}
-
-			if(data[4 * i + 1] !== g){
-				data[4 * i + 1] = g;
-				valuesChanged = true;
-			}
-
-			if(data[4 * i + 2] !== b){
-				data[4 * i + 2] = b;
-				valuesChanged = true;
-			}
-
-			if(data[4 * i + 3] !== a){
-				data[4 * i + 3] = a;
-				valuesChanged = true;
-			}
-		}
-
-		if(valuesChanged){
-			this.segmentationTexture.needsUpdate = true;
 
 			this.dispatchEvent({
 				type: 'material_property_changed',
@@ -1216,23 +989,9 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		return this.uniforms.wClassification.value;
 	}
 
-	getWeightSegmentation (){
-		return this.uniforms.wSegmentation.value;
-	}
-
 	set weightClassification (value) {
 		if(this.uniforms.wClassification.value !== value){
 			this.uniforms.wClassification.value = value;
-			this.dispatchEvent({
-				type: 'material_property_changed',
-				target: this
-			});
-		}
-	}
-
-	set weightSegmentation (value) {
-		if(this.uniforms.wSegmentation.value !== value){
-			this.uniforms.wSegmentation.value = value;
 			this.dispatchEvent({
 				type: 'material_property_changed',
 				target: this
