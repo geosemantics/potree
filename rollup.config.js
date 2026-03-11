@@ -1,6 +1,9 @@
 export default [
 	{
-		input: 'src/Potree.js',
+		// SVX: use SVXPotreeBundle as the entry so SVX classes are included in
+		// the main potree.js build (fixes the exports.debug error that occurred
+		// when SVXPotreeRenderer was in a separate svx.js bundle).
+		input: 'src/svx/SVXPotreeBundle.js',
 		treeshake: false,
 		output: {
 			file: 'build/potree/potree.js',
@@ -20,6 +23,15 @@ export default [
 		input: 'src/modules/loader/2.0/DecoderWorker.js',
 		output: {
 			file: 'build/potree/workers/2.0/DecoderWorker.js',
+			format: 'es',
+			name: 'Potree',
+			sourcemap: false
+		}
+	},{
+		// SVX: SVX decoder worker with scalar buffer interleaving support
+		input: 'src/svx/modules/loader/2.0/SVXDecoderWorker.js',
+		output: {
+			file: 'build/potree/workers/2.0/SVXDecoderWorker.js',
 			format: 'es',
 			name: 'Potree',
 			sourcemap: false

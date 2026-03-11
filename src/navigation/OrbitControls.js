@@ -38,7 +38,7 @@ export class OrbitControls extends EventDispatcher{
 		this.panDelta = new THREE.Vector2(0, 0);
 		this.radiusDelta = 0;
 
-		this.doubleClockZoomEnabled = false;
+		this.doubleClockZoomEnabled = true;
 
 		this.tweens = [];
 

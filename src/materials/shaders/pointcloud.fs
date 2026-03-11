@@ -6,7 +6,6 @@
 precision highp float;
 precision highp int;
 
-
 uniform mat4 viewMatrix;
 uniform mat4 uViewInv;
 uniform mat4 uProjInv;
@@ -39,7 +38,7 @@ float specularStrength = 1.0;
 void main() {
 
 	// gl_FragColor = vec4(vColor, 1.0);
-	
+
 	vec3 color = vColor;
 	float depth = gl_FragCoord.z;
 
@@ -60,7 +59,6 @@ void main() {
 	#else
 		gl_FragColor = vec4(color, uOpacity);
 	#endif
-
 
 	#if defined paraboloid_point_shape
 		float wi = 0.0 - ( u*u + v*v);
@@ -96,7 +94,6 @@ void main() {
 		gl_FragColor.a = weight;
 		gl_FragColor.xyz = gl_FragColor.xyz * weight;
 	#endif
-
 
 	//gl_FragColor = vec4(0.0, 0.7, 0.0, 1.0);
 	

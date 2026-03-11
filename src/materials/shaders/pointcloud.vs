@@ -9,9 +9,6 @@ attribute vec3 position;
 attribute vec3 color;
 attribute float intensity;
 attribute float classification;
-attribute float segmentation1;
-attribute float segmentation2;
-attribute float segmentation3;
 attribute float returnNumber;
 attribute float numberOfReturns;
 attribute float pointSourceID;
@@ -20,7 +17,6 @@ attribute float spacing;
 attribute float gpsTime;
 attribute vec3 normal;
 attribute float aExtra;
-
 
 uniform mat4 modelMatrix;
 uniform mat4 modelViewMatrix;
@@ -102,7 +98,6 @@ uniform float wRGB;
 uniform float wIntensity;
 uniform float wElevation;
 uniform float wClassification;
-uniform float wSegmentation;
 uniform float wReturnNumber;
 uniform float wSourceID;
 
@@ -116,7 +111,6 @@ uniform vec3 uShadowColor;
 uniform sampler2D visibleNodes;
 uniform sampler2D gradient;
 uniform sampler2D classificationLUT;
-uniform sampler2D segmentationLUT;
 
 #if defined(color_type_matcap)
 uniform sampler2D matcapTextureUniform;
@@ -129,12 +123,12 @@ uniform mat4 uShadowWorldView[num_shadowmaps];
 uniform mat4 uShadowProj[num_shadowmaps];
 #endif
 
-// Pass to the fragment shader
 varying vec3	vColor;
 varying float	vLogDepth;
 varying vec3	vViewPosition;
 varying float 	vRadius;
 varying float 	vPointSize;
+
 
 float round(float number){
 	return floor(number + 0.5);
@@ -445,91 +439,12 @@ vec3 getElevation(){
 	return cElevation;
 }
 
-
-float getSegmentationValue(){
-	// If segmentation level 1 is defined, use it
-	#ifdef segmentation_level_1
-		return segmentation1;
-	// If segmentation level 2 is defined, use it
-	#elif defined segmentation_level_2
-		return segmentation2;
-	// If segmentation level 3 is defined, use it
-	#elif defined segmentation_level_3
-		return segmentation3;
-	#else
-		return 0.0; // Default case if no segmentation level is defined
-	#endif
-}
-
-/* modulo operator for integers */
-int imod(int a, int b) { 
-	return a - b * (a / b);
-}
-
 vec4 getClassification(){
-
-	// if define classification_raw is used, use the point's classification value
-	// #ifdef classification_raw
-	// 	vec2 uv = vec2(classification / 255.0, 0.5);
-	// 	vec4 classColor = texture2D(classificationLUT, uv);
-	// 	return classColor;
-
-	// Use color based on segment id
-	// #else
-	float segmentation = getSegmentationValue();
-
-	// Convert to integer ID
-	int id = int(segmentation);
-
-	// Compute (x, y) index in 2D texture 
-	int x = imod(id, 256);
-	int y = id / 256;
-	
-	// Convert to normalized UV coords
-	vec2 uv = vec2(
-		(float(x) + 0.5) / 256.0,
-		(float(y) + 0.5) / 256.0
-	);
+	vec2 uv = vec2(classification / 255.0, 0.5);
 	vec4 classColor = texture2D(classificationLUT, uv);
-
-	// // If classification does not exist, use white
-	// if(classColor.a == 0.0){
-	// 	classColor = vec4(1.0);
-	// }
-	return classColor;
-	// #endif
-
-}
-
-vec4 getSegmentation(){
-	// Get the segmentation value based on the defined segmentation level
-	float segmentation = getSegmentationValue();
-
-	float iteration = floor(segmentation / 256.0);
 	
-	// Convert integer segment ID (0–255) to UV coordinate
-	float u =  (segmentation - (255.0 * iteration)) / 255.0;
-
-	// If superimpose_classification is defined, use classification LUT
-	// if segment is classified, else use segmentation LUT
-	#ifdef superimpose_classification
-		// Prioritize classification: if it exists, use it
-		// vec4 classColor = texture2D(classificationLUT, vec2(segmentation, 0.0));
-		vec4 classColor = getClassification();
-
-		// If class color[0,2] = default[0,2]=[0.5, 0.5, 0.5], use segmentation color
-		if(classColor.r == 1.0 && classColor.g == 1.0 && classColor.b == 1.0){
-			classColor = texture2D(segmentationLUT, vec2(u, 0.0));
-		}
-		return classColor;
-
-	// If superimpose_classification is NOT defined, return segmentation color	
-	#else
-		vec4 segColor = texture2D(segmentationLUT, vec2(u, 0.0));
-		return segColor;
-	#endif
+	return classColor;
 }
-
 
 vec3 getReturns(){
 
@@ -607,17 +522,17 @@ vec3 getCompositeColor(){
 	c += wRGB * getRGB();
 	w += wRGB;
 	
-	// c += wIntensity * getIntensity() * vec3(1.0, 1.0, 1.0);
-	// w += wIntensity;
+	c += wIntensity * getIntensity() * vec3(1.0, 1.0, 1.0);
+	w += wIntensity;
 	
 	c += wElevation * getElevation();
 	w += wElevation;
 	
-	// c += wReturnNumber * getReturnNumber();
-	// w += wReturnNumber;
+	c += wReturnNumber * getReturnNumber();
+	w += wReturnNumber;
 	
-	// c += wSourceID * getSourceID();
-	// w += wSourceID;
+	c += wSourceID * getSourceID();
+	w += wSourceID;
 	
 	vec4 cl = wClassification * getClassification();
 	c += cl.a * cl.rgb;
@@ -719,15 +634,6 @@ vec3 getColor(){
 	#elif defined color_type_classification
 		vec4 cl = getClassification(); 
 		color = cl.rgb;
-	#elif defined color_type_segmentation1
-		vec4 sg = getSegmentation(); 
-		color = sg.rgb;
-	#elif defined color_type_segmentation2
-		vec4 sg = getSegmentation();
-		color = sg.rgb;
-	#elif defined color_type_segmentation3
-		vec4 sg = getSegmentation();
-		color = sg.rgb;
 	#elif defined color_type_return_number
 		color = getReturnNumber();
 	#elif defined color_type_returns
@@ -753,8 +659,6 @@ vec3 getColor(){
 	if (backfaceCulling && applyBackfaceCulling()) {
 		color = vec3(0.);
 	}
-
-
 
 	return color;
 }
@@ -961,6 +865,9 @@ void main() {
 	gl_Position = projectionMatrix * mvPosition;
 	vLogDepth = log2(-mvPosition.z);
 
+	//gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+	//gl_PointSize = 5.0;
+
 	// POINT SIZE
 	float pointSize = getPointSize();
 	//float pointSize = 2.0;
@@ -969,6 +876,19 @@ void main() {
 
 	// COLOR
 	vColor = getColor();
+	// vColor = vec3(1.0, 0.0, 0.0);
+
+	//gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+	//gl_Position = vec4(position.xzy / 1000.0, 1.0 );
+
+	//gl_PointSize = 5.0;
+	//vColor = vec3(1.0, 1.0, 1.0);
+
+	// only for "replacing" approaches
+	// if(getLOD() != uLevel){
+	// 	gl_Position = vec4(10.0, 10.0, 10.0, 1.0);
+	// }
+
 
 	#if defined hq_depth_pass
 		float originalDepth = gl_Position.w;
@@ -1057,16 +977,5 @@ void main() {
 
 		}
 
-	#endif
-
-
-
-	// Segment selection
-	#if defined(selected_segment_id)
-		float segmentation = getSegmentationValue();
-		if( int(round(segmentation)) == selected_segment_id){
-			vColor = vec3(0.5176, 0.7569, 1.0);
-			// vColor.b += 0.5;
-		}
 	#endif
 }

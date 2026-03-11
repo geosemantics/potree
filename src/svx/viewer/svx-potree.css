@@ -1,0 +1,19 @@
+/**
+ * svx-potree.css
+ *
+ * SVX-specific CSS overrides and additions.
+ * Load this file AFTER potree.css to apply SVX styling.
+ *
+ * Changes vs the original potree.css:
+ *  - Link colour override: remove the bright-purple link colouring that
+ *    potree.css applies, which can clash with SVX embedded-viewer designs.
+ */
+
+/* SVX: Override potree.css link colour rules */
+a:hover,
+a:visited,
+a:link,
+a:active {
+	color: inherit;
+	text-decoration: none;
+}

@@ -94,7 +94,6 @@ export class VolumeTool extends EventDispatcher{
 				volume.position.copy(I.location);
 
 				let wp = volume.getWorldPosition(new THREE.Vector3()).applyMatrix4(camera.matrixWorldInverse);
-				console.log('wp', wp);
 				// let pp = new THREE.Vector4(wp.x, wp.y, wp.z).applyMatrix4(camera.projectionMatrix);
 				let w = Math.abs((wp.z / 5));
 				volume.scale.set(w, w, w);
@@ -133,8 +132,6 @@ export class VolumeTool extends EventDispatcher{
 		let clientWidth = renderAreaSize.width;
 		let clientHeight = renderAreaSize.height;
 
-		// console.log('VolumeTool.update', clientWidth, clientHeight);
-
 		let volumes = this.viewer.scene.volumes;
 		for (let volume of volumes) {
 			let label = volume.label;
@@ -152,7 +149,6 @@ export class VolumeTool extends EventDispatcher{
 			calculatedVolume = calculatedVolume / Math.pow(this.viewer.lengthUnit.unitspermeter, 3) * Math.pow(this.viewer.lengthUnitDisplay.unitspermeter, 3);  //convert to cubic meters then to the cubic display unit
 			let text = Utils.addCommas(calculatedVolume.toFixed(3)) + ' ' + this.viewer.lengthUnitDisplay.code + '\u00B3';
 			label.setText(text);
-			// console.log('VolumeTool.update', volume.name, text);
 		}
 	}
 
@@ -166,8 +162,6 @@ export class VolumeTool extends EventDispatcher{
 		}
 		renderer.render(this.scene, this.viewer.scene.getActiveCamera());
 		renderer.setRenderTarget(oldTarget);
-
-		// console.log('VolumeTool.render', this.scene.name, params.renderTarget ? params.renderTarget.name : 'default');
 	}
 
 }

@@ -31,7 +31,6 @@ import {DeviceOrientationControls} from "../navigation/DeviceOrientationControls
 import {VRControls} from "../navigation/VRControls.js";
 import { EventDispatcher } from "../EventDispatcher.js";
 import { ClassificationScheme } from "../materials/ClassificationScheme.js";
-import { SegmentationScheme } from "../materials/SegmentationScheme.js";
 import { VRButton } from '../../libs/three.js/extra/VRButton.js';
 
 import JSON5 from "../../libs/json5-2.1.3/json5.mjs";
@@ -140,7 +139,6 @@ export class Viewer extends EventDispatcher{
 		this.description = "";
 
 		this.classifications = ClassificationScheme.DEFAULT;
-		this.segmentations = SegmentationScheme.DEFAULT
 
 		this.moveSpeed = 10;
 
@@ -311,7 +309,7 @@ export class Viewer extends EventDispatcher{
 
 			this.scaleFactor = 1;
 
-			// this.loadSettingsFromURL();
+			this.loadSettingsFromURL();
 		}
 
 		// start rendering!
@@ -676,27 +674,10 @@ export class Viewer extends EventDispatcher{
 		});
 	}
 
-	/**
-	 * Inject logic to modify the values of a point attribute
-	 * based on another attribute, before the point is rendered.
-	 * (before the point's attr buffer is passed to the GPU)
-	 */
-	setDerivedPointAttributes(
-		property,
-		baseProperty,
-		fn
-	){}
-
 	setClassifications(classifications){
 		this.classifications = classifications;
 
 		this.dispatchEvent({'type': 'classifications_changed', 'viewer': this});
-	}
-
-	setSegmentations(segmentations){
-		this.segmentations = segmentations;
-
-		this.dispatchEvent({'type': 'segmentations_changed', 'viewer': this});
 	}
 
 	setClassificationVisibility (key, value) {
@@ -706,17 +687,6 @@ export class Viewer extends EventDispatcher{
 		} else if (this.classifications[key].visible !== value) {
 			this.classifications[key].visible = value;
 			this.dispatchEvent({'type': 'classification_visibility_changed', 'viewer': this});
-		}
-	}
-
-	setSegmentationVisibility (key, value) {
-		if (!this.segmentations[key]) {
-			this.segmentations[key] = {visible: value, name: 'no name'};
-			this.dispatchEvent({'type': 'segmentations_visibility_changed', 'viewer': this});
-		} else if (this.segmentations[key].visible !== value) {
-			console.log(`setSegmentationVisibility: ${key} = ${value}`);
-			this.segmentations[key].visible = value;
-			this.dispatchEvent({'type': 'segmentations_visibility_changed', 'viewer': this});
 		}
 	}
 
@@ -1043,9 +1013,9 @@ export class Viewer extends EventDispatcher{
 	}
 	
 	loadSettingsFromURL(){
-		// if(Utils.getParameterByName("pointSize")){
-		// 	this.setPointSize(parseFloat(Utils.getParameterByName("pointSize")));
-		// }
+		if(Utils.getParameterByName("pointSize")){
+			this.setPointSize(parseFloat(Utils.getParameterByName("pointSize")));
+		}
 		
 		if(Utils.getParameterByName("FOV")){
 			this.setFOV(parseFloat(Utils.getParameterByName("FOV")));
@@ -1299,7 +1269,7 @@ export class Viewer extends EventDispatcher{
 			i18n.init({
 				lng: 'en',
 				resGetPath: Potree.resourcePath + '/lang/__lng__/__ns__.json',
-				preload: ['en', 'fr', 'de', 'jp', 'se', 'es', 'zh', 'it'],
+				preload: ['en', 'fr', 'de', 'jp', 'se', 'es', 'zh', 'it','ca'],
 				getAsync: true,
 				debug: false
 			}, function (t) {
@@ -1676,9 +1646,7 @@ export class Viewer extends EventDispatcher{
 			material.uniforms.uFilterPointSourceIDClipRange.value = this.filterPointSourceIDRange;
 
 			material.classification = this.classifications;
-			material.segmentation = this.segmentations
 			material.recomputeClassification();
-			material.recomputeSegmentation();
 
 			this.updateMaterialDefaults(pointcloud);
 		}

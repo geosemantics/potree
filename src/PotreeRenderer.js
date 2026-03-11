@@ -150,10 +150,7 @@ let attributeLocations = {
 	"normal": {name: "normal", location: 8},
 	"spacing": {name: "spacing", location: 9},
 	"gps-time":  {name: "gpsTime", location: 10},
-	"segmentation1":  {name: "segmentation1", location: 11},
-	"segmentation2":  {name: "segmentation2", location: 12},
-	"segmentation3":  {name: "segmentation3", location: 13},
-	"aExtra":  {name: "aExtra", location: 14},
+	"aExtra":  {name: "aExtra", location: 11},
 };
 
 class Shader {
@@ -860,6 +857,7 @@ export class Renderer {
 
 			const geometry = node.geometryNode.geometry;
 
+			if (!geometry) console.log('Missing geometry', node)
 			if(geometry.attributes["gps-time"]){
 				const bufferAttribute = geometry.attributes["gps-time"];
 				const attGPS = octree.getAttribute("gps-time");
@@ -1363,12 +1361,6 @@ export class Renderer {
 			shader.setUniform1i("classificationLUT", currentTextureBindingPoint);
 			gl.activeTexture(gl.TEXTURE0 + currentTextureBindingPoint);
 			gl.bindTexture(classificationTexture.target, classificationTexture.id);
-			currentTextureBindingPoint++;
-
-			let segmentationTexture = this.textures.get(material.segmentationTexture);
-			shader.setUniform1i("segmentationLUT", currentTextureBindingPoint);
-			gl.activeTexture(gl.TEXTURE0 + currentTextureBindingPoint);
-			gl.bindTexture(segmentationTexture.target, segmentationTexture.id);
 			currentTextureBindingPoint++;
 
 			let matcapTexture = this.textures.get(material.matcapTexture);
