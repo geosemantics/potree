@@ -676,21 +676,21 @@ export class Viewer extends EventDispatcher{
 		});
 	}
 
-	/**
-	 * Inject logic to modify the values of a point attribute
-	 * based on another attribute, before the point is rendered.
-	 * (before the point's attr buffer is passed to the GPU)
-	 */
-	setDerivedPointAttributes(
-		property,
-		baseProperty,
-		fn
-	){}
-
 	setClassifications(classifications){
 		this.classifications = classifications;
 
 		this.dispatchEvent({'type': 'classifications_changed', 'viewer': this});
+	}
+
+
+	/**
+	 * Inject per-segment classification information. This is an alias for 
+	 * setClassifications and is provided for better readability when working 
+	 * with segmentations. 
+	 * @param {*} classifications 
+	 */
+	setSegmentClasses(classifications){
+		this.setClassifications(classifications);
 	}
 
 	setSegmentations(segmentations){

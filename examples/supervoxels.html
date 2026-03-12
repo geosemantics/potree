@@ -28,6 +28,8 @@
 	<script src="../build/potree/potree.js"></script>
 	<script src="../libs/plasio/js/laslaz.js"></script>
 	<script src="../libs/other/stats.js"></script>
+    <script src="svx/segmentation.js"></script>
+	<script src="svx/classification.js"></script>
 	
 	<!-- INCLUDE ADDITIONAL DEPENDENCIES HERE -->
 	<!-- INCLUDE SETTINGS HERE -->
@@ -35,6 +37,14 @@
 	<div class="potree_container" style="position: absolute; width: 100%; height: 100%; left: 0px; top: 0px; ">
 		<div id="potree_render_area" style="background-image: url('../build/potree/resources/images/background.jpg');"></div>
 		<div id="potree_sidebar_container"> </div>
+		<div style="position: absolute; top: 12px; right: 12px; z-index: 1000; background: rgba(0,0,0,0.6); color: white; padding: 8px 10px; border-radius: 4px; font-family: sans-serif; font-size: 13px;">
+			<label for="segmentation_selector" style="margin-right: 8px;">Segmentation:</label>
+			<select id="segmentation_selector" style="font-size: 13px;">
+				<option value="segmentation1" selected>1</option>
+				<option value="segmentation2">2</option>
+				<option value="segmentation3">3</option>
+			</select>
+		</div>
 	</div>
 	
 	<script type="module">
@@ -65,13 +75,25 @@
 			material.size = 1.2;
 			//material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
 			material.activeAttributeName = "rgba";
-			
+
+			material.setSegmentationLevel(2);
+            viewer.setClassifications(sample_classification)
+
 			window.pco = e.pointcloud;
 			viewer.fitToScreen()
 			//viewer.scene.view.setView(
 			//	[694517.403, 3899262.595, 10642.698],
 			//	[694878.410, 3916332.067, 14.497],
 			//);
+		});
+
+		const segmentationSelector = document.getElementById("segmentation_selector");
+		segmentationSelector.addEventListener("change", (event) => {
+			if (!window.pco || !window.pco.material) {
+				return;
+			}
+
+			window.pco.material.activeAttributeName = event.target.value;
 		});
 		
 		// Add click handler to log clicked points
