@@ -693,6 +693,25 @@ export class Viewer extends EventDispatcher{
 		this.setClassifications(classifications);
 	}
 
+	/**
+	 * Set classification scheme when using raw (from points) classification
+	 * style. This is an alias for setClassifications and is provided for clarity
+	 * @param {*} classifications 
+	 * @returns 
+	 */
+	setClassificationScheme(classifications){
+		if (classifications === this.classifications) {
+			return;
+		}
+
+		// if not using raw classification style log a warning
+		if (!this.classificationStyle == "raw") {
+			console.warn("Not using raw classification style");
+		}
+
+		this.setClassifications(classifications);
+	}
+
 	setSegmentations(segmentations){
 		this.segmentations = segmentations;
 
