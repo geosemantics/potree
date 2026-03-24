@@ -1,0 +1,64 @@
+{
+  "scalarAttributes": [
+    {
+      "name": "Level1",
+      "description": "",
+      "size": 2,
+      "numElements": 1,
+      "elementSize": 2,
+      "type": "uint16",
+      "min": [
+        0
+      ],
+      "max": [
+        112
+      ],
+      "scale": [
+        1
+      ],
+      "offset": [
+        0
+      ]
+    },
+    {
+      "name": "Level2",
+      "description": "",
+      "size": 2,
+      "numElements": 1,
+      "elementSize": 2,
+      "type": "uint16",
+      "min": [
+        0
+      ],
+      "max": [
+        57
+      ],
+      "scale": [
+        1
+      ],
+      "offset": [
+        0
+      ]
+    },
+    {
+      "name": "Level3",
+      "description": "",
+      "size": 2,
+      "numElements": 1,
+      "elementSize": 2,
+      "type": "uint16",
+      "min": [
+        0
+      ],
+      "max": [
+        27
+      ],
+      "scale": [
+        1
+      ],
+      "offset": [
+        0
+      ]
+    }
+  ]
+}

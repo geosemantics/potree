@@ -1,0 +1,177 @@
+{
+    "version": "2.0",
+    "name": "cloud",
+    "description": "",
+    "points": 26594,
+    "projection": "",
+    "hierarchy": {
+        "firstChunkSize": 1694,
+        "stepSize": 4,
+        "depth": 0
+    },
+    "offset": [
+        445562.252,
+        4314508.067,
+        -45.59
+    ],
+    "scale": [
+        0.001,
+        0.001,
+        0.001
+    ],
+    "spacing": 0.38936718750028376,
+    "boundingBox": {
+        "min": [
+            445562.252,
+            4314508.067,
+            -45.59
+        ],
+        "max": [
+            445612.091,
+            4314557.9059999995,
+            4.249000000036318
+        ]
+    },
+    "encoding": "DEFAULT",
+    "attributes": [
+        {
+            "name": "position",
+            "description": "",
+            "size": 12,
+            "numElements": 3,
+            "elementSize": 4,
+            "type": "int32",
+            "min": [
+                445562.252,
+                4314508.067,
+                -45.59
+            ],
+            "max": [
+                445612.091,
+                4314541.151,
+                -16.588
+            ],
+            "scale": [
+                1,
+                1,
+                1
+            ],
+            "offset": [
+                0,
+                0,
+                0
+            ]
+        },
+        {
+            "name": "rgb",
+            "description": "",
+            "size": 6,
+            "numElements": 3,
+            "elementSize": 2,
+            "type": "uint16",
+            "min": [
+                1280,
+                1280,
+                1280
+            ],
+            "max": [
+                65280,
+                65280,
+                65280
+            ],
+            "scale": [
+                1,
+                1,
+                1
+            ],
+            "offset": [
+                0,
+                0,
+                0
+            ]
+        },
+        {
+            "name": "pointid",
+            "description": "",
+            "size": 4,
+            "numElements": 1,
+            "elementSize": 4,
+            "type": "uint32",
+            "min": [
+                0
+            ],
+            "max": [
+                26593
+            ],
+            "scale": [
+                1
+            ],
+            "offset": [
+                0
+            ]
+        }
+    ],
+    "scalarAttributes": [
+        {
+            "name": "Level1",
+            "description": "",
+            "size": 2,
+            "numElements": 1,
+            "elementSize": 2,
+            "type": "uint16",
+            "min": [
+                0
+            ],
+            "max": [
+                112
+            ],
+            "scale": [
+                1
+            ],
+            "offset": [
+                0
+            ]
+        },
+        {
+            "name": "Level2",
+            "description": "",
+            "size": 2,
+            "numElements": 1,
+            "elementSize": 2,
+            "type": "uint16",
+            "min": [
+                0
+            ],
+            "max": [
+                57
+            ],
+            "scale": [
+                1
+            ],
+            "offset": [
+                0
+            ]
+        },
+        {
+            "name": "Level3",
+            "description": "",
+            "size": 2,
+            "numElements": 1,
+            "elementSize": 2,
+            "type": "uint16",
+            "min": [
+                0
+            ],
+            "max": [
+                27
+            ],
+            "scale": [
+                1
+            ],
+            "offset": [
+                0
+            ]
+        }
+    ],
+    "bpp": 22
+}
