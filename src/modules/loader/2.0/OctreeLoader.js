@@ -466,7 +466,10 @@ export class OctreeLoader {
   }
 
   static async load(url, signUrl) {
-    const response = await fetch(await signUrl(url));
+    // Let the signer attach gateway auth for server-backed metadata, just as
+    // it already does for hierarchy and octree range requests.
+    const headers = {};
+    const response = await fetch(await signUrl(url, headers), { headers });
     if (!response.ok) {
       // AWS "file not found" with signed URL returns 403
       if ([403, 404].includes(response.status)) {
