@@ -171,7 +171,7 @@ export async function loadPotreeConverterPointCloud(path, name, signUrlArg) {
   }
 }
 
-export function loadPointCloud(path, name, callback, signUrlArg) {
+export function loadPointCloud(path, name, callback, signUrlArg, signal) {
   // Default signUrl to the identity function.
   const signUrl =
     signUrlArg ||
@@ -183,7 +183,7 @@ export function loadPointCloud(path, name, callback, signUrlArg) {
     callback(e);
   };
 
-  let promise = new Promise((resolve) => {
+  let promise = new Promise((resolve, reject) => {
     // load pointcloud
     if (!path) {
       // TODO: callback? comment? Hello? Bueller? Anyone?
@@ -228,7 +228,7 @@ export function loadPointCloud(path, name, callback, signUrlArg) {
         }
       });
     } else if (path.indexOf("metadata.json") > 0) {
-      OctreeLoader.load(path, signUrl).then((e) => {
+      OctreeLoader.load(path, signUrl, signal).then((e) => {
         let geometry = e.geometry;
 
         if (!geometry) {
@@ -256,7 +256,7 @@ export function loadPointCloud(path, name, callback, signUrlArg) {
           // loaded(pointcloud);
           resolve({ type: "pointcloud_loaded", pointcloud: pointcloud });
         }
-      });
+      }).catch(reject);
     } else if (path.indexOf(".vpc") > 0) {
       PointCloudArena4DGeometry.load(path, signUrl, function (geometry) {
         if (!geometry) {

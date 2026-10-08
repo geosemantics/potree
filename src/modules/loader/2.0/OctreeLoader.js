@@ -9,16 +9,17 @@ import { OctreeGeometry, OctreeGeometryNode } from "./OctreeGeometry.js";
 
 // let loadedNodes = new Set();
 export class NodeLoader {
-  constructor(url, signUrl) {
+  constructor(url, signUrl, signal) {
     this.url = url;
     this.signUrl = signUrl;
+    this.signal = signal;
     this.auth_headers = Potree.authManager.getHeaders();
   }
 
   async load(node) {
     // console.log(`loading node`,node);
 
-    if (node.loaded || node.loading) {
+    if (node.loaded || node.loading || (this.signal && this.signal.aborted)) {
       return;
     }
 
@@ -54,8 +55,9 @@ export class NodeLoader {
         console.warn(`loaded node with 0 bytes: ${node.name}`);
       } else {
         const headers = { Range: `bytes=${first}-${last}` };
-        const response = await fetch(await this.signUrl(urlOctree, headers), {
+        const response = await fetch(await this.signUrl(urlOctree, headers, this.signal), {
           headers,
+          signal: this.signal,
         });
         buffer = await response.arrayBuffer();
 
@@ -89,9 +91,10 @@ export class NodeLoader {
 
           const scalarUrl = `${this.url.substring(0, lastSlash + 1)}scalars/${scalar}.bin`;
           const scalarResponse = await fetch(
-            await this.signUrl(scalarUrl, scalarHeaders),
+            await this.signUrl(scalarUrl, scalarHeaders, this.signal),
             {
               headers: scalarHeaders,
+              signal: this.signal,
             },
           );
           const scalarBuffer = await scalarResponse.arrayBuffer();
@@ -107,6 +110,8 @@ export class NodeLoader {
         // ---- end SVX scalar loading logic ----
       }
 
+      if (this.signal) this.signal.throwIfAborted();
+
       let workerPath;
       if (this.metadata.encoding === "BROTLI") {
         // console.debug("Using brotli decoder worker");
@@ -118,11 +123,17 @@ export class NodeLoader {
 
       let worker = Potree.workerPool.getWorker(workerPath);
 
-      worker.onmessage = function (e) {
+      worker.onmessage = (e) => {
         let data = e.data;
         let buffers = data.attributeBuffers;
 
         Potree.workerPool.returnWorker(workerPath, worker);
+
+        if (this.signal && this.signal.aborted) {
+          node.loading = false;
+          Potree.numNodesLoading--;
+          return;
+        }
 
         let geometry = new THREE.BufferGeometry();
 
@@ -234,6 +245,8 @@ export class NodeLoader {
       node.loading = false;
       Potree.numNodesLoading--;
 
+      if (this.signal && this.signal.aborted) return;
+
       console.log(`failed to load ${node.name}`);
       console.log(e);
       console.log(`trying again!`);
@@ -339,8 +352,9 @@ export class NodeLoader {
     let last = first + hierarchyByteSize - 1n;
 
     const headers = { Range: `bytes=${first}-${last}` };
-    const response = await fetch(await this.signUrl(hierarchyPath, headers), {
+    const response = await fetch(await this.signUrl(hierarchyPath, headers, this.signal), {
       headers,
+      signal: this.signal,
     });
     let buffer = await response.arrayBuffer();
 
@@ -465,11 +479,11 @@ export class OctreeLoader {
     return attributes;
   }
 
-  static async load(url, signUrl) {
+  static async load(url, signUrl, signal) {
     // Let the signer attach gateway auth for server-backed metadata, just as
     // it already does for hierarchy and octree range requests.
     const headers = {};
-    const response = await fetch(await signUrl(url, headers), { headers });
+    const response = await fetch(await signUrl(url, headers, signal), { headers, signal });
     if (!response.ok) {
       // AWS "file not found" with signed URL returns 403
       if ([403, 404].includes(response.status)) {
@@ -480,6 +494,7 @@ export class OctreeLoader {
       );
     }
     let metadata = await response.json();
+    if (signal) signal.throwIfAborted();
 
     let attributes = OctreeLoader.parseAttributes(metadata.attributes);
     // SVX: Parse scalar attributes as well, if they exist. These will be loaded via separate range requests in NodeLoader.load()
@@ -491,7 +506,7 @@ export class OctreeLoader {
     // console.debug("[OctreeLoader] Parsed attributes:", attributes);
     // console.debug("[OctreeLoader] Parsed scalar attributes:", scalarAttributes);
 
-    let loader = new NodeLoader(url, signUrl);
+    let loader = new NodeLoader(url, signUrl, signal);
     loader.metadata = metadata;
     loader.attributes = attributes;
     // SVX: Store scalar attributes in loader for access in NodeLoader.load()
