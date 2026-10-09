@@ -23,6 +23,7 @@ attribute float spacing;
 attribute float gpsTime;
 attribute vec3 normal;
 attribute float aExtra;
+attribute float instance;
 
 
 uniform mat4 modelMatrix;
@@ -123,6 +124,10 @@ uniform sampler2D rawClassificationLUT;
 uniform sampler2D segmentationLUT;
 uniform float selectedSegmentCount;
 uniform float selectedSegmentIds[128];
+uniform float selectedInstanceId;
+uniform float uHasInstance;
+uniform float uInstanceScale;
+uniform float uInstanceOffset;
 uniform float lassoOverrideCount;
 uniform float lassoOverrideClassIds[max_lasso_class_overrides];
 uniform float lassoOverrideSequences[max_lasso_class_overrides];
@@ -1134,6 +1139,14 @@ void main() {
 
 		if (isSelected > 0.5) {
 			vColor = vec3(0.5176, 0.7569, 1.0);
+		}
+	}
+
+	// Preserve the active render colors underneath a light object-selection tint.
+	if (uHasInstance > 0.5 && selectedInstanceId >= 0.0) {
+		float instanceId = floor(instance / uInstanceScale + uInstanceOffset + 0.5);
+		if (abs(instanceId - selectedInstanceId) < 0.5) {
+			vColor = mix(vColor, vec3(0.5176, 0.7569, 1.0), 0.3);
 		}
 	}
 

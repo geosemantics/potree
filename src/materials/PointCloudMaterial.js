@@ -334,6 +334,7 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 			segmentationLUT:	{ type: "t", value: this.segmentationTexture },
 			selectedSegmentCount:	{ type: "f", value: 0 },
 			selectedSegmentIds:	{ type: "fv", value: new Float32Array(MAX_SELECTED_SEGMENTS).fill(-1) },
+			selectedInstanceId:	{ type: "f", value: -1 },
 			lassoOverrideCount:	{ type: "f", value: 0 },
 			lassoOverrideClassIds:	{ type: "fv", value: new Float32Array(MAX_LASSO_CLASS_OVERRIDES).fill(-1) },
 			lassoOverrideSequences:	{ type: "fv", value: new Float32Array(MAX_LASSO_CLASS_OVERRIDES).fill(-1) },
@@ -601,6 +602,14 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		if(this.uniforms.backfaceCulling.value !== value){
 			this.uniforms.backfaceCulling.value = value;
 			this.dispatchEvent({type: 'backface_changed', target: this});
+		}
+	}
+
+	setSelectedInstanceId(instanceId = -1) {
+		const id = Number.isInteger(instanceId) && instanceId >= 0 ? instanceId : -1;
+		if (this.uniforms.selectedInstanceId.value !== id) {
+			this.uniforms.selectedInstanceId.value = id;
+			this.dispatchEvent({ type: "material_property_changed", target: this });
 		}
 	}
 

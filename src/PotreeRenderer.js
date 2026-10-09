@@ -152,6 +152,7 @@ let attributeLocations = {
 	"gps-time":  {name: "gpsTime", location: 10},
 	"segmentation":  {name: "segmentation", location: 11},
 	"aExtra":  {name: "aExtra", location: 12},
+	"instance": {name: "instance", location: 13},
 };
 
 class Shader {
@@ -957,7 +958,7 @@ export class Renderer {
 			gl.bindVertexArray(webglBuffer.vao);
 
 			let isExtraAttribute =
-				attributeLocations[material.activeAttributeName] === undefined
+				(attributeLocations[material.activeAttributeName] === undefined || material.activeAttributeName === "instance")
 				&& Object.keys(geometry.attributes).includes(material.activeAttributeName);
 
 			if(isExtraAttribute){
@@ -1036,6 +1037,25 @@ export class Renderer {
 						
 					}
 				}
+			}
+
+			// Bind independently from aExtra so tinting also works in RGB/class/other scalar views.
+			const instanceAttribute = geometry.attributes.instance;
+			const instanceVbo = webglBuffer.vbos.get("instance");
+			const instanceLocation = attributeLocations.instance.location;
+			const hasInstance = instanceAttribute !== undefined && instanceVbo !== undefined;
+			shader.setUniform1f("uHasInstance", hasInstance ? 1 : 0);
+			const instancePacking = hasInstance ? instanceAttribute.potree : null;
+			shader.setUniform1f("uInstanceScale", instancePacking && instancePacking.scale ? instancePacking.scale : 1);
+			shader.setUniform1f("uInstanceOffset", instancePacking && instancePacking.offset ? instancePacking.offset : 0);
+			if (hasInstance) {
+				gl.bindBuffer(gl.ARRAY_BUFFER, instanceVbo.handle);
+				gl.vertexAttribPointer(instanceLocation, instanceAttribute.itemSize,
+					this.glTypeMapping.get(instanceAttribute.array.constructor), instanceAttribute.normalized, 0, 0);
+				gl.enableVertexAttribArray(instanceLocation);
+			} else {
+				gl.disableVertexAttribArray(instanceLocation);
+				gl.vertexAttrib1f(instanceLocation, 0);
 			}
 
 			let numPoints = webglBuffer.numElements;
@@ -1341,6 +1361,7 @@ export class Renderer {
 			shader.setUniform1f("wSourceID", material.weightSourceID);
 			shader.setUniform1f("selectedSegmentCount", material.uniforms.selectedSegmentCount.value);
 			shader.setUniform1fv("selectedSegmentIds[0]", material.uniforms.selectedSegmentIds.value);
+			shader.setUniform1f("selectedInstanceId", material.uniforms.selectedInstanceId.value);
 			shader.setUniform1f("lassoOverrideCount", material.uniforms.lassoOverrideCount.value);
 			shader.setUniform1fv("lassoOverrideClassIds[0]", material.uniforms.lassoOverrideClassIds.value);
 			shader.setUniform1fv("lassoOverrideSequences[0]", material.uniforms.lassoOverrideSequences.value);
