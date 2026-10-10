@@ -763,6 +763,13 @@ vec3 getColor(){
 	
 	#ifdef color_type_rgba
 		color = getRGB();
+		#if defined(rgb_class_overlay) && rgb_class_overlay == 1
+			vec4 classColor = getClassification();
+			// Match the segment overlay's unclassified (white/absent) fallback.
+			if(classColor.a > 0.0 && any(notEqual(classColor.rgb, vec3(1.0)))){
+				color = mix(color, classColor.rgb, 0.5);
+			}
+		#endif
 	#elif defined color_type_height || defined color_type_elevation
 		color = getElevation();
 	#elif defined color_type_rgb_height
