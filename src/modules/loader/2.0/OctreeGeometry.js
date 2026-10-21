@@ -27,6 +27,14 @@ export class OctreeGeometryNode{
 		this.numPoints = 0;
 		this.level = null;
 		this.oneTimeDisposeHandlers = [];
+		// SVX: bumped by PointCloudOctree.invalidateNodes() so in-flight loads
+		// that started before an invalidation can detect they are stale.
+		this.generation = 0;
+		// SVX: loaded and on screen, but its bytes changed on storage; the visibility
+		// pass re-fetches it and swaps the geometry in place (no blank frame).
+		this.needsReload = false;
+		// SVX: scalar names whose next fetch must bypass the HTTP cache.
+		this.scalarCacheBust = null;
 	}
 
 	isGeometryNode(){
@@ -82,8 +90,10 @@ export class OctreeGeometryNode{
 		return this.numPoints;
 	}
 
-	dispose(){
-		if (this.geometry && this.parent != null) {
+	// `force` lets SVX invalidation dispose the root (and its direct children),
+	// which the LRU never evicts.
+	dispose(force = false){
+		if (this.geometry && (force || this.parent != null)) {
 			this.geometry.dispose();
 			this.geometry = null;
 			this.loaded = false;

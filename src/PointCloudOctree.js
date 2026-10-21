@@ -292,6 +292,7 @@ export class PointCloudOctree extends PointCloudTree {
 
     node.geometryNode = geometryNode;
     node.sceneNode = sceneNode;
+    geometryNode.sceneNode = sceneNode; // SVX: lets a reload swap the geometry in place
     node.pointcloud = this;
     node.children = [];
     //for (let key in geometryNode.children) {
@@ -312,7 +313,16 @@ export class PointCloudOctree extends PointCloudTree {
       parent.children[childIndex] = node;
     }
 
-    let disposeListener = function () {
+    let disposeListener = () => {
+      geometryNode.sceneNode = null;
+      if (!parent) {
+        // SVX: root disposed by invalidateNodes(); fall back to the geometry root
+        this.remove(node.sceneNode);
+        if (this.root === node) {
+          this.root = geometryNode;
+        }
+        return;
+      }
       let childIndex = parseInt(
         geometryNode.name[geometryNode.name.length - 1]
       );
@@ -322,6 +332,133 @@ export class PointCloudOctree extends PointCloudTree {
     geometryNode.oneTimeDisposeHandlers.push(disposeListener);
 
     return node;
+  }
+
+  /**
+   * SVX: unload the given octree nodes (by name, e.g. "r0127") and free their
+   * GPU/CPU memory so the next visibility pass re-fetches whichever of them
+   * are inside the camera frustum and point budget. Nodes outside the view
+   * simply stay unloaded until the camera reaches them.
+   *
+   * Intended for external scalar rewrites: the hierarchy and byte offsets are
+   * assumed unchanged, so only node geometry is dropped. Children are left
+   * alone; list them explicitly if they changed too.
+   *
+   * @param {string[]|null} nodeNames  null invalidates every node.
+   * @param {Object} [options]
+   * @param {string[]|null} [options.scalars] scalars whose bytes changed
+   *   (their re-fetch bypasses the HTTP cache); null means all scalars.
+   * @param {"swap"|"unload"} [options.mode="swap"] "swap" keeps nodes that are
+   *   currently on screen visible and replaces their geometry once the new
+   *   data has loaded (the old buffers are freed at that point); nodes that
+   *   are not on screen are unloaded immediately. "unload" frees every node
+   *   immediately, which blanks the nodes' subtrees until they are re-fetched.
+   *   Refreshed nodes swap one by one as they are decoded.
+   * @param {boolean} [options.refreshMetadata=true] re-read metadata.json so
+   *   scalar ranges/descriptors match storage.
+   * @param {AbortSignal} [options.signal]
+   * @returns {Promise<{invalidated: number, metadata: Object|null}>}
+   */
+  async invalidateNodes(nodeNames, options = {}) {
+    const { scalars = null, refreshMetadata = true, signal, mode = "swap" } = options;
+    const geometry = this.pcoGeometry;
+    const loader = geometry.loader;
+
+    let metadata = null;
+    if (refreshMetadata) {
+      metadata = await loader.refreshMetadata(geometry, signal);
+      for (const [name, { before, after }] of Object.entries(metadata.changed)) {
+        // Without a material range the renderer uses the attribute's range,
+        // which refreshMetadata already updated in place. A range that exists
+        // is only moved if it still equals the old default (not customised).
+        const current = this.material.getRange(name);
+        if (current && JSON.stringify(current) === JSON.stringify(before)) {
+          this.material.setRange(name, after);
+        }
+      }
+    }
+
+    // A changed attribute layout makes every loaded node undecodable.
+    if (metadata && metadata.descriptorChanged.length > 0) {
+      nodeNames = null;
+    }
+
+    const bust = new Set(scalars || loader.registeredExternalScalars);
+    let invalidated = 0;
+    const unloaded = [];
+    const reloading = [];
+    const notLoaded = [];
+    const onScreen =
+      mode === "swap"
+        ? new Set(this.visibleNodes.map((n) => n.geometryNode))
+        : new Set();
+    const unknown = [];
+
+    const invalidate = (node) => {
+      node.generation++;
+      node.scalarCacheBust = new Set([...(node.scalarCacheBust || []), ...bust]);
+      if (node.loaded && onScreen.has(node)) {
+        node.needsReload = true;
+        reloading.push(node.name);
+      } else if (node.loaded) {
+        node.dispose(true);
+        Potree.lru.remove(node);
+        invalidated++;
+        unloaded.push(node.name);
+      } else {
+        // Not in memory (outside the view so far, or still loading): it will
+        // fetch fresh data whenever it is loaded.
+        notLoaded.push(node.name);
+      }
+    };
+
+    if (nodeNames == null) {
+      const stack = [geometry.root];
+      while (stack.length > 0) {
+        const node = stack.pop();
+        invalidate(node);
+        stack.push(...node.getChildren());
+      }
+    } else {
+      for (const name of nodeNames) {
+        // Names encode the path from the root: "r" + one child index per level.
+        let node = name.startsWith("r") ? geometry.root : null;
+        for (let i = 1; node && i < name.length; i++) {
+          node = node.children[name.charAt(i)];
+        }
+        if (node && node.name === name) {
+          invalidate(node);
+        } else {
+          unknown.push(name);
+        }
+      }
+    }
+
+    // Node lists can hold thousands of names; keep the log readable.
+    const names = (list, max = 20) =>
+      list.length > max ? `${list.slice(0, max)},…(+${list.length - max})` : `${list}`;
+    console.debug(
+      `[invalidateNodes] ${this.url ?? ""} scalars=[${[...bust]}] ` +
+        `unloaded ${unloaded.length}: [${names(unloaded)}] | ` +
+        `reloading in place ${reloading.length}: [${names(reloading)}] | ` +
+        `not in memory ${notLoaded.length}` +
+        (unknown.length ? ` | unknown names ${unknown.length}: [${names(unknown)}]` : "") +
+        (metadata
+          ? ` | ranges changed: [${Object.keys(metadata.changed)}] added: [${metadata.added}] removed: [${metadata.removed}]` +
+            (metadata.descriptorChanged.length
+              ? ` | layout changed: [${metadata.descriptorChanged}] (all nodes invalidated)`
+              : "")
+          : ""),
+    );
+
+    return {
+      invalidated: invalidated + reloading.length,
+      metadata,
+      unloaded,
+      reloading,
+      notLoaded,
+      unknown,
+    };
   }
 
   updateVisibleBounds() {

@@ -308,6 +308,10 @@ export function updateVisibility(pointclouds, camera, renderer){
 
 		if (node.isTreeNode()) {
 			exports.lru.touch(node.geometryNode);
+			if (node.geometryNode.needsReload) {
+				// SVX: scalars changed on storage; re-fetch and swap in place
+				unloadedGeometry.push(node.geometryNode);
+			}
 			node.sceneNode.visible = true;
 			node.sceneNode.material = pointcloud.material;
 

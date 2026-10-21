@@ -8,6 +8,8 @@ import { OctreeGeometry, OctreeGeometryNode } from "./OctreeGeometry.js";
 
 
 // let loadedNodes = new Set();
+class StaleNodeLoad extends Error {}
+
 export class NodeLoader {
   constructor(url, signUrl, signal) {
     this.url = url;
@@ -19,12 +21,30 @@ export class NodeLoader {
   async load(node) {
     // console.log(`loading node`,node);
 
-    if (node.loaded || node.loading || (this.signal && this.signal.aborted)) {
+    if (
+      (node.loaded && !node.needsReload) ||
+      node.loading ||
+      (this.signal && this.signal.aborted)
+    ) {
       return;
     }
 
+    // SVX: refresh of an already loaded node; keep showing the old geometry
+    // until the new one is ready. Anything invalidated from here on sets
+    // needsReload again and is picked up by the next visibility pass.
+    const replacing = node.loaded && node.needsReload;
+    node.needsReload = false;
+
     node.loading = true;
     Potree.numNodesLoading++;
+
+    // SVX: a load that straddles PointCloudOctree.invalidateNodes() is stale
+    // and must not populate the node with pre-invalidation data.
+    const generation = node.generation;
+    const bustScalars = node.scalarCacheBust;
+    const assertFresh = () => {
+      if (node.generation !== generation) throw new StaleNodeLoad();
+    };
 
     // console.log(node.name, node.numPoints);
 
@@ -60,6 +80,7 @@ export class NodeLoader {
           signal: this.signal,
         });
         buffer = await response.arrayBuffer();
+        assertFresh();
 
         // SVX: perform additional range requests to load scalars
         // scalars live next to the octree.bin, in /scalars/{scalar_level}.bin
@@ -95,9 +116,14 @@ export class NodeLoader {
             {
               headers: scalarHeaders,
               signal: this.signal,
+              // Invalidated scalars must not be served from the HTTP cache.
+              ...(bustScalars && bustScalars.has(scalar)
+                ? { cache: "reload" }
+                : {}),
             },
           );
           const scalarBuffer = await scalarResponse.arrayBuffer();
+          assertFresh();
 
           // Add to attributes array for worker
           scalarBufferAttributes.push({
@@ -130,6 +156,14 @@ export class NodeLoader {
         Potree.workerPool.returnWorker(workerPath, worker);
 
         if (this.signal && this.signal.aborted) {
+          node.loading = false;
+          Potree.numNodesLoading--;
+          return;
+        }
+
+        if (node.generation !== generation) {
+          // Invalidated while decoding: drop the result, the node reloads
+          // on the next visibility pass.
           node.loading = false;
           Potree.numNodesLoading--;
           return;
@@ -202,8 +236,14 @@ export class NodeLoader {
           }
         }
 
+        const previousGeometry = replacing && node.loaded ? node.geometry : null;
         node.density = data.density;
         node.geometry = geometry;
+        node.scalarCacheBust = null;
+        if (previousGeometry) {
+          if (node.sceneNode) node.sceneNode.geometry = geometry;
+          previousGeometry.dispose(); // free the old GPU buffers now
+        }
         node.loaded = true;
         node.loading = false;
         Potree.numNodesLoading--;
@@ -241,11 +281,14 @@ export class NodeLoader {
 
       worker.postMessage(message, [message.buffer]);
     } catch (e) {
-      node.loaded = false;
+      // A failed refresh keeps the old geometry and is retried.
+      if (replacing) node.needsReload = true;
+      else node.loaded = false;
       node.loading = false;
       Potree.numNodesLoading--;
 
       if (this.signal && this.signal.aborted) return;
+      if (e instanceof StaleNodeLoad) return;
 
       console.log(`failed to load ${node.name}`);
       console.log(e);
@@ -339,6 +382,102 @@ export class NodeLoader {
     // 	let msg = `duration: ${duration}ms, numNodes: ${numNodes}`;
     // 	console.log(msg);
     // }
+  }
+
+  /**
+   * SVX: re-read the tile's metadata.json after its external scalars changed
+   * on storage, and update attribute ranges / the registered scalar list in
+   * place. Attribute objects keep their identity so materials and UI that
+   * already hold them see the new ranges. The node layout (hierarchy,
+   * byte offsets, bpp) is deliberately left untouched: scalar rewrites must
+   * not change the shape of the bins.
+   *
+   * @returns {{changed: Object, added: string[], removed: string[], descriptorChanged: string[]}}
+   */
+  async refreshMetadata(octree, signal) {
+    const headers = {};
+    const response = await fetch(
+      await this.signUrl(this.url, headers, signal),
+      { headers, signal, cache: "reload" },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `Metadata refresh failed: ${response.status} ${response.statusText}`,
+      );
+    }
+    const metadata = await response.json();
+
+    const pointAttributes = octree.pointAttributes;
+    const fresh = OctreeLoader.parseAttributes([
+      ...metadata.attributes,
+      ...(metadata.scalarAttributes || []),
+    ]);
+    const scalarNames = new Set(
+      (metadata.scalarAttributes || []).map((a) => a.name),
+    );
+
+    const changed = {};
+    const added = [];
+    const descriptorChanged = [];
+    for (const attr of fresh.attributes) {
+      const existing = pointAttributes.attributes.find(
+        (a) => a.name === attr.name,
+      );
+      if (existing) {
+        if (
+          existing.type !== attr.type ||
+          existing.numElements !== attr.numElements
+        ) {
+          // Loaded nodes decode with the old layout; the caller must reload
+          // every node, and scalar offsets use byteSize from here on.
+          existing.type = attr.type;
+          existing.numElements = attr.numElements;
+          existing.byteSize = attr.byteSize;
+          descriptorChanged.push(attr.name);
+        }
+        const before = existing.range;
+        if (JSON.stringify(before) !== JSON.stringify(attr.range)) {
+          existing.range = attr.range;
+          existing.initialRange = attr.initialRange;
+          changed[attr.name] = { before, after: attr.range };
+        }
+      } else if (scalarNames.has(attr.name)) {
+        // New scalars are appended: the decoder interleaves in this order.
+        pointAttributes.add(attr);
+        added.push(attr.name);
+      }
+    }
+
+    const removed = this.registeredExternalScalars.filter(
+      (name) => !scalarNames.has(name),
+    );
+    if (removed.length > 0) {
+      pointAttributes.attributes = pointAttributes.attributes.filter(
+        (a) => !removed.includes(a.name),
+      );
+      pointAttributes.size = pointAttributes.attributes.length;
+      pointAttributes.byteSize = pointAttributes.attributes.reduce(
+        (sum, a) => sum + a.byteSize,
+        0,
+      );
+    }
+
+    this.registeredExternalScalars = (metadata.scalarAttributes || []).map(
+      (a) => a.name,
+    );
+    this.metadata.scalarAttributes = metadata.scalarAttributes;
+    this.scalarAttributes = OctreeLoader.parseAttributes(
+      metadata.scalarAttributes || [],
+    );
+
+    if (descriptorChanged.length > 0) {
+      pointAttributes.byteSize = pointAttributes.attributes.reduce(
+        (sum, a) => sum + a.byteSize,
+        0,
+      );
+    }
+
+    return { changed, added, removed, descriptorChanged };
   }
 
   async loadHierarchy(node) {
