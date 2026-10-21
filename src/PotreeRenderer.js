@@ -1002,14 +1002,18 @@ export class Renderer {
 						range = [0, 1];
 					}
 
-					let initialRange = attExtra.initialRange;
-					let initialRangeSize = initialRange[1] - initialRange[0];
+					// The decoder packs values as (value - packOffset) * packScale: only types wider
+					// than 32 bit are normalized by the attribute range, 32 bit ones stay raw
+					// (packOffset 0, packScale 1). Map the packed value onto [0, 1] over `range`.
+					const packing = bufferAttribute && bufferAttribute.potree;
+					const packOffset = packing && Number.isFinite(packing.offset) ? packing.offset : 0;
+					const packScale = packing && Number.isFinite(packing.scale) && packing.scale !== 0 ? packing.scale : 1;
 
 					let globalRange = range;
 					let globalRangeSize = globalRange[1] - globalRange[0];
 
-					let scale = initialRangeSize / globalRangeSize;
-					let offset = -(globalRange[0] - initialRange[0]) / initialRangeSize;
+					let scale = 1 / (packScale * globalRangeSize);
+					let offset = (packOffset - globalRange[0]) * packScale;
 
 					scale = Number.isNaN(scale) ? 1 : scale;
 					offset = Number.isNaN(offset) ? 0 : offset;
