@@ -24,6 +24,7 @@ attribute float gpsTime;
 attribute vec3 normal;
 attribute float aExtra;
 attribute float instance;
+attribute float aOverlay;
 
 
 uniform mat4 modelMatrix;
@@ -128,6 +129,10 @@ uniform float selectedInstanceId;
 uniform float uHasInstance;
 uniform float uInstanceScale;
 uniform float uInstanceOffset;
+uniform float uHasOverlay;
+uniform float uOverlayScale;
+uniform float uOverlayOffset;
+uniform vec3 uOverlayColor;
 uniform float lassoOverrideCount;
 uniform float lassoOverrideClassIds[max_lasso_class_overrides];
 uniform float lassoOverrideSequences[max_lasso_class_overrides];
@@ -1155,6 +1160,11 @@ void main() {
 		if (abs(instanceId - selectedInstanceId) < 0.5) {
 			vColor = mix(vColor, vec3(0.5176, 0.7569, 1.0), 0.3);
 		}
+	}
+
+	// Tint points whose overlay scalar is >= 1 (e.g. change clusters) over the active colors.
+	if (uHasOverlay > 0.5 && floor(aOverlay / uOverlayScale + uOverlayOffset + 0.5) >= 1.0) {
+		vColor = mix(vColor, uOverlayColor, 0.65);
 	}
 
 }

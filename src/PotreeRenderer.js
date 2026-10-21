@@ -153,6 +153,7 @@ let attributeLocations = {
 	"segmentation":  {name: "segmentation", location: 11},
 	"aExtra":  {name: "aExtra", location: 12},
 	"instance": {name: "instance", location: 13},
+	"aOverlay": {name: "aOverlay", location: 14},
 };
 
 class Shader {
@@ -1060,6 +1061,27 @@ export class Renderer {
 			} else {
 				gl.disableVertexAttribArray(instanceLocation);
 				gl.vertexAttrib1f(instanceLocation, 0);
+			}
+
+			// Optional scalar bound independently of the active attribute; tints its non-zero points.
+			const overlayName = material.overlayAttributeName;
+			const overlayAttribute = overlayName ? geometry.attributes[overlayName] : undefined;
+			const overlayVbo = overlayName ? webglBuffer.vbos.get(overlayName) : undefined;
+			const overlayLocation = attributeLocations.aOverlay.location;
+			const hasOverlay = overlayAttribute !== undefined && overlayVbo !== undefined;
+			shader.setUniform1f("uHasOverlay", hasOverlay ? 1 : 0);
+			const overlayPacking = hasOverlay ? overlayAttribute.potree : null;
+			shader.setUniform1f("uOverlayScale", overlayPacking && overlayPacking.scale ? overlayPacking.scale : 1);
+			shader.setUniform1f("uOverlayOffset", overlayPacking && overlayPacking.offset ? overlayPacking.offset : 0);
+			shader.setUniform3f("uOverlayColor", material.overlayColor || [1, 0, 0]);
+			if (hasOverlay) {
+				gl.bindBuffer(gl.ARRAY_BUFFER, overlayVbo.handle);
+				gl.vertexAttribPointer(overlayLocation, overlayAttribute.itemSize,
+					this.glTypeMapping.get(overlayAttribute.array.constructor), overlayAttribute.normalized, 0, 0);
+				gl.enableVertexAttribArray(overlayLocation);
+			} else {
+				gl.disableVertexAttribArray(overlayLocation);
+				gl.vertexAttrib1f(overlayLocation, 0);
 			}
 
 			let numPoints = webglBuffer.numElements;
