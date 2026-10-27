@@ -27,6 +27,12 @@ export function updatePointClouds(pointclouds, camera, renderer){
 		pointcloud.updateVisibleBounds();
 	}
 
+	for (let pointcloud of pointclouds) {
+		if(pointcloud.updateNodeLoadProgress){
+			pointcloud.updateNodeLoadProgress();
+		}
+	}
+
 	exports.lru.freeMemory();
 
 	return result;
@@ -51,6 +57,7 @@ export function updateVisibilityStructures(pointclouds, camera, renderer) {
 		pointcloud.deepestVisibleLevel = 0;
 		pointcloud.visibleNodes = [];
 		pointcloud.visibleGeometry = [];
+		pointcloud.numUnloadedGeometry = 0;
 
 		// frustum in object space
 		camera.updateMatrixWorld();
@@ -303,6 +310,7 @@ export function updateVisibility(pointclouds, camera, renderer){
 			} else {
 				unloadedGeometry.push(node);
 				visibleGeometry.push(node);
+				pointcloud.numUnloadedGeometry++;
 			}
 		}
 
@@ -311,6 +319,7 @@ export function updateVisibility(pointclouds, camera, renderer){
 			if (node.geometryNode.needsReload) {
 				// SVX: scalars changed on storage; re-fetch and swap in place
 				unloadedGeometry.push(node.geometryNode);
+				pointcloud.numUnloadedGeometry++;
 			}
 			node.sceneNode.visible = true;
 			node.sceneNode.material = pointcloud.material;

@@ -212,6 +212,39 @@ export class PointCloudOctree extends PointCloudTree {
     return this.name;
   }
 
+  /**
+   * Dispatches node loading progress, based on the nodes the last visibility
+   * pass found visible but not loaded (`numUnloadedGeometry`).
+   *   node_loading_progress { remainingNodes, totalNodes, progress }
+   *   node_loading_complete { }
+   * Fired when the count changes; a session spans from the first pending node
+   * to none pending. `totalNodes` is the highest pending count seen in it.
+   */
+  updateNodeLoadProgress() {
+    const remaining = this.numUnloadedGeometry || 0;
+
+    if (remaining === 0) {
+      if (this._nodeLoadPeak) {
+        this._nodeLoadPeak = 0;
+        this._nodeLoadRemaining = 0;
+        this.dispatchEvent({ type: "node_loading_complete", pointcloud: this });
+      }
+      return;
+    }
+
+    this._nodeLoadPeak = Math.max(this._nodeLoadPeak || 0, remaining);
+    if (remaining === this._nodeLoadRemaining) return;
+    this._nodeLoadRemaining = remaining;
+
+    this.dispatchEvent({
+      type: "node_loading_progress",
+      pointcloud: this,
+      remainingNodes: remaining,
+      totalNodes: this._nodeLoadPeak,
+      progress: 1 - remaining / this._nodeLoadPeak,
+    });
+  }
+
   getAttribute(name) {
     const attribute = this.pcoGeometry.pointAttributes.attributes.find(
       (a) => a.name === name
