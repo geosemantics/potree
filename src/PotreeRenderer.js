@@ -577,8 +577,8 @@ export class Renderer {
 		let gl = this.gl;
 		let webglBuffer = this.buffers.get(geometry);
 		if (webglBuffer != null) {
-			for (let attributeName in geometry.attributes) {
-				gl.deleteBuffer(webglBuffer.vbos.get(attributeName).handle);
+			for (const vbo of webglBuffer.vbos.values()) {
+				gl.deleteBuffer(vbo.handle);
 			}
 			this.buffers.delete(geometry);
 		}
@@ -632,6 +632,39 @@ export class Renderer {
 		geometry.addEventListener("dispose", disposeHandler);
 
 		return webglBuffer;
+	}
+
+	// SVX: upload one attribute that was added to an already uploaded geometry
+	// (lazy-loaded scalars) without re-uploading the others.
+	addAttributeBuffer(geometry, webglBuffer, attributeName){
+		let gl = this.gl;
+		let bufferAttribute = geometry.attributes[attributeName];
+
+		gl.bindVertexArray(webglBuffer.vao);
+
+		let vbo = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+		gl.bufferData(gl.ARRAY_BUFFER, bufferAttribute.array, gl.STATIC_DRAW);
+
+		if(attributeLocations[attributeName] !== undefined){
+			let type = this.glTypeMapping.get(bufferAttribute.array.constructor);
+			let attributeLocation = attributeLocations[attributeName].location;
+
+			gl.vertexAttribPointer(attributeLocation, bufferAttribute.itemSize, type, bufferAttribute.normalized, 0, 0);
+			gl.enableVertexAttribArray(attributeLocation);
+		}
+
+		webglBuffer.vbos.set(attributeName, {
+			handle: vbo,
+			name: attributeName,
+			count: bufferAttribute.count,
+			itemSize: bufferAttribute.itemSize,
+			type: geometry.attributes.position.array.constructor,
+			version: bufferAttribute.version
+		});
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, null);
+		gl.bindVertexArray(null);
 	}
 
 	updateBuffer(geometry){
@@ -949,8 +982,11 @@ export class Renderer {
 				webglBuffer = this.buffers.get(geometry);
 				for(let attributeName in geometry.attributes){
 					let attribute = geometry.attributes[attributeName];
+					let vbo = webglBuffer.vbos.get(attributeName);
 
-					if(attribute.version > webglBuffer.vbos.get(attributeName).version){
+					if(vbo === undefined){
+						this.addAttributeBuffer(geometry, webglBuffer, attributeName);
+					}else if(attribute.version > vbo.version){
 						this.updateBuffer(geometry);
 					}
 				}

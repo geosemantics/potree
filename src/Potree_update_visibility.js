@@ -25,6 +25,9 @@ export function updatePointClouds(pointclouds, camera, renderer){
 	for (let pointcloud of pointclouds) {
 		pointcloud.updateMaterial(pointcloud.material, pointcloud.visibleNodes, camera, renderer);
 		pointcloud.updateVisibleBounds();
+		if(pointcloud.updateScalars){
+			pointcloud.updateScalars();
+		}
 	}
 
 	exports.lru.freeMemory();

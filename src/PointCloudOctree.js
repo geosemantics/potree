@@ -164,6 +164,8 @@ export class PointCloudOctree extends PointCloudTree {
       this.material.activeAttributeName = selected;
     }
 
+    this.initScalarLoading();
+
     this.showBoundingBox = false;
     this.boundingBoxNodes = [];
     this.loadQueue = [];
@@ -210,6 +212,215 @@ export class PointCloudOctree extends PointCloudTree {
 
   getName() {
     return this.name;
+  }
+
+  // ---------------------------------------------------------------------
+  // SVX: lazy external scalars.
+  //
+  // Nodes load with only the main bin (position/rgba/...). Scalars from
+  // scalars/{name}.bin are fetched when something needs them: the active
+  // attribute, an overlay, a selection, or an explicit ensureAttribute().
+  //
+  // Switching `material.activeAttributeName` to a scalar that is not yet
+  // loaded on every loaded node HOLDS the previous attribute until it is,
+  // then applies the switch. Events dispatched on this point cloud:
+  //   scalar_attributes_loading { attributes, pendingAttribute,
+  //                               remainingNodes, totalNodes, progress }
+  //   scalar_attributes_loaded  { attributes, activeAttribute }
+  //   scalar_attribute_failed   { attributes, error }
+  // ---------------------------------------------------------------------
+
+  initScalarLoading() {
+    const loader = this.pcoGeometry.loader;
+    this._pendingActive = null;
+    this._pinnedScalars = new Set();
+    this._scalarFrame = 0;
+    this._scalarBusy = false;
+    this._scalarSession = new Set();
+    this._scalarPeakRemaining = 0;
+    this._scalarEventKey = null;
+    this._scalarEventTime = 0;
+
+    loader.getWantedScalars = () => this.getWantedScalars();
+    loader.onScalarError = (names, error) => this._onScalarError(names, error);
+    this.material.attributeGate = (name) => this._gateActiveAttribute(name);
+  }
+
+  isExternalScalar(name) {
+    const loader = this.pcoGeometry.loader;
+    return !!name && loader.registeredExternalScalars.includes(name);
+  }
+
+  /** Keep `name` loaded on all nodes (no-op for non-scalar attributes). */
+  ensureAttribute(name) {
+    if (this.isExternalScalar(name) && !this._pinnedScalars.has(name)) {
+      this.pcoGeometry.loader.failedScalars.delete(name);
+      this._pinnedScalars.add(name);
+      this._scalarFrame = 0;
+    }
+  }
+
+  releaseAttribute(name) {
+    this._pinnedScalars.delete(name);
+  }
+
+  /** Scalars that should currently be present on every loaded node. */
+  getWantedScalars() {
+    const loader = this.pcoGeometry.loader;
+    const material = this.material;
+    const wanted = new Set();
+    const add = (name) => {
+      if (this.isExternalScalar(name) && !loader.failedScalars.has(name)) {
+        wanted.add(name);
+      }
+    };
+
+    const active = material.activeAttributeName;
+    for (const name of [active, this._pendingActive]) {
+      add(name);
+      // Segment/class colouring fuses both attributes in the shader.
+      if (name === "classification" || (name && name.startsWith("segmentation"))) {
+        add("segmentation");
+        add("classification");
+      }
+    }
+    this._pinnedScalars.forEach(add);
+    add(material.overlayAttributeName);
+    if (material.uniforms.selectedInstanceId.value >= 0) add("instance");
+    if (material.uniforms.selectedSegmentCount.value > 0) add("segmentation");
+    if (material._superimposeClassification) {
+      add("segmentation");
+      add("classification");
+    }
+    return wanted;
+  }
+
+  // Loaded nodes that lack some of `names`.
+  _collectMissingScalars(names) {
+    const missing = [];
+    let total = 0;
+    const stack = [this.pcoGeometry.root];
+    while (stack.length > 0) {
+      const node = stack.pop();
+      for (const i in node.children) stack.push(node.children[i]);
+      if (!node.loaded || !node.geometry || node.loading || node.needsReload) {
+        continue;
+      }
+      total++;
+      const lacking = [];
+      for (const name of names) {
+        if (!node.loadedScalars.has(name)) lacking.push(name);
+      }
+      if (lacking.length > 0) missing.push({ node, names: lacking });
+    }
+    return { missing, total };
+  }
+
+  _gateActiveAttribute(name) {
+    const material = this.material;
+    if (
+      !this.isExternalScalar(name) ||
+      material.activeAttributeName == null ||
+      name === material.activeAttributeName
+    ) {
+      this._pendingActive = null;
+      this._scalarFrame = 0;
+      return true;
+    }
+
+    this.pcoGeometry.loader.failedScalars.delete(name);
+    if (this._collectMissingScalars([name]).missing.length === 0) {
+      this._pendingActive = null;
+      return true;
+    }
+
+    this._pendingActive = name;
+    this._scalarFrame = 0;
+    return false;
+  }
+
+  _onScalarError(names, error) {
+    const loader = this.pcoGeometry.loader;
+    console.error(`[potree] failed to load scalar(s) ${names}`, error);
+    names.forEach((n) => loader.failedScalars.add(n));
+    if (this._pendingActive && names.includes(this._pendingActive)) {
+      this._pendingActive = null; // previous attribute stays
+    }
+    this.dispatchEvent({
+      type: "scalar_attribute_failed",
+      pointcloud: this,
+      attributes: names,
+      error,
+    });
+  }
+
+  /** Per-frame driver, called from updatePointClouds(). */
+  updateScalars() {
+    const loader = this.pcoGeometry.loader;
+    if (!loader.registeredExternalScalars || loader.registeredExternalScalars.length === 0) {
+      return;
+    }
+
+    const busy = this._pendingActive !== null || loader.numScalarLoads > 0 || this._scalarBusy;
+    if (!busy && this._scalarFrame++ % 20 !== 0) return;
+
+    const wanted = this.getWantedScalars();
+    const { missing, total } = this._collectMissingScalars(wanted);
+
+    // Visible nodes first.
+    if (missing.length > 0) {
+      const onScreen = new Set(this.visibleNodes.map((n) => n.geometryNode));
+      missing.sort((a, b) => onScreen.has(b.node) - onScreen.has(a.node));
+      const MAX_SCALAR_LOADS = 16;
+      for (const { node, names } of missing) {
+        if (loader.numScalarLoads >= MAX_SCALAR_LOADS) break;
+        loader.loadScalars(node, names);
+      }
+    }
+
+    const pending = this._pendingActive;
+    if (pending && !missing.some((m) => m.names.includes(pending))) {
+      this._pendingActive = null;
+      this.material.applyActiveAttributeName(pending);
+    }
+
+    const remaining = missing.length;
+    if (remaining > 0 || this._pendingActive) {
+      const attributes = [...new Set(missing.flatMap((m) => m.names))];
+      attributes.forEach((a) => this._scalarSession.add(a));
+      this._scalarBusy = true;
+      this._scalarPeakRemaining = Math.max(this._scalarPeakRemaining, remaining);
+
+      const key = `${attributes}|${remaining}|${this._pendingActive}`;
+      const now = performance.now();
+      if (key !== this._scalarEventKey && now - this._scalarEventTime > 100) {
+        this._scalarEventKey = key;
+        this._scalarEventTime = now;
+        this.dispatchEvent({
+          type: "scalar_attributes_loading",
+          pointcloud: this,
+          attributes,
+          pendingAttribute: this._pendingActive,
+          remainingNodes: remaining,
+          totalNodes: total,
+          progress: this._scalarPeakRemaining
+            ? 1 - remaining / this._scalarPeakRemaining
+            : 0,
+        });
+      }
+    } else if (this._scalarBusy) {
+      this._scalarBusy = false;
+      this._scalarEventKey = null;
+      this._scalarPeakRemaining = 0;
+      const attributes = [...this._scalarSession];
+      this._scalarSession.clear();
+      this.dispatchEvent({
+        type: "scalar_attributes_loaded",
+        pointcloud: this,
+        attributes,
+        activeAttribute: this.material.activeAttributeName,
+      });
+    }
   }
 
   getAttribute(name) {

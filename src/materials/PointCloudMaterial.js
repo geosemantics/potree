@@ -248,6 +248,8 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 		this.ranges = new Map();
 
 		this._activeAttributeName = null;
+		// SVX: optional (name) => boolean, see activeAttributeName setter.
+		this.attributeGate = null;
 
 		this._defaultIntensityRangeChanged = false;
 		this._defaultElevationRangeChanged = false;
@@ -1102,6 +1104,15 @@ export class PointCloudMaterial extends THREE.RawShaderMaterial {
 	}
 
 	set activeAttributeName(value){
+		// SVX: the owning point cloud may hold the switch back until the
+		// attribute's lazy-loaded data is available, keeping the previous one.
+		if (this.attributeGate && !this.attributeGate(value)) {
+			return;
+		}
+		this.applyActiveAttributeName(value);
+	}
+
+	applyActiveAttributeName(value){
 		if (this._activeAttributeName !== value) {
 			this._activeAttributeName = value;
 

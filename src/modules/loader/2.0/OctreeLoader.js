@@ -10,12 +10,71 @@ import { OctreeGeometry, OctreeGeometryNode } from "./OctreeGeometry.js";
 // let loadedNodes = new Set();
 class StaleNodeLoad extends Error {}
 
+// Convert the decoder's attribute buffers into BufferAttributes on `geometry`.
+// Shared by the main node load and the lazy scalar load.
+function addDecodedAttributes(geometry, buffers) {
+  for (let property in buffers) {
+    let buffer = buffers[property].buffer;
+
+    if (property === "position") {
+      geometry.setAttribute(
+        "position",
+        new THREE.BufferAttribute(new Float32Array(buffer), 3),
+      );
+    } else if (property === "rgba") {
+      geometry.setAttribute(
+        "rgba",
+        new THREE.BufferAttribute(new Uint8Array(buffer), 4, true),
+      );
+    } else if (property === "NORMAL") {
+      geometry.setAttribute(
+        "normal",
+        new THREE.BufferAttribute(new Float32Array(buffer), 3),
+      );
+    } else if (property === "INDICES") {
+      let bufferAttribute = new THREE.BufferAttribute(
+        new Uint8Array(buffer),
+        4,
+      );
+      bufferAttribute.normalized = true;
+      geometry.setAttribute("indices", bufferAttribute);
+    } else {
+      if (property === "segmentation" && geometry.getAttribute("segmentation")) {
+        continue;
+      }
+
+      const bufferAttribute = new THREE.BufferAttribute(
+        new Float32Array(buffer),
+        1,
+      );
+
+      let batchAttribute = buffers[property].attribute;
+      bufferAttribute.potree = {
+        offset: buffers[property].offset,
+        scale: buffers[property].scale,
+        preciseBuffer: buffers[property].preciseBuffer,
+        range: batchAttribute.range,
+      };
+
+      geometry.setAttribute(property, bufferAttribute);
+    }
+  }
+}
+
+
 export class NodeLoader {
   constructor(url, signUrl, signal) {
     this.url = url;
     this.signUrl = signUrl;
     this.signal = signal;
     this.auth_headers = Potree.authManager.getHeaders();
+    // SVX: set by PointCloudOctree. getWantedScalars() -> Set of scalar names
+    // to fetch with every node; onScalarError(names, error) reports failures.
+    this.getWantedScalars = null;
+    this.onScalarError = null;
+    this.numScalarLoads = 0;
+    // Scalars whose fetch failed; not wanted again until explicitly re-requested.
+    this.failedScalars = new Set();
   }
 
   async load(node) {
@@ -70,70 +129,47 @@ export class NodeLoader {
       let buffer;
       let scalarBufferAttributes = [];
 
+      // SVX: scalars are lazy. Only the ones currently wanted (active
+      // attribute, overlays, selection...) ride along with the main bin.
+      let scalarsToLoad = this.getScalarAttributesToLoad(node);
+
       if (byteSize === 0n) {
         buffer = new ArrayBuffer(0);
         console.warn(`loaded node with 0 bytes: ${node.name}`);
       } else {
         const headers = { Range: `bytes=${first}-${last}` };
-        const response = await fetch(await this.signUrl(urlOctree, headers, this.signal), {
-          headers,
-          signal: this.signal,
-        });
-        buffer = await response.arrayBuffer();
+        const mainRequest = (async () => {
+          const response = await fetch(await this.signUrl(urlOctree, headers, this.signal), {
+            headers,
+            signal: this.signal,
+          });
+          return response.arrayBuffer();
+        })();
+
+        const [mainBuffer, scalarBuffers] = await Promise.all([
+          mainRequest,
+          Promise.all(
+            scalarsToLoad.map((attr) =>
+              // A broken scalar must not stop the node itself from loading.
+              this.fetchScalar(node, attr, bustScalars).catch((e) => {
+                if (this.signal && this.signal.aborted) throw e;
+                if (this.onScalarError) this.onScalarError([attr.name], e);
+                return null;
+              }),
+            ),
+          ),
+        ]);
+        buffer = mainBuffer;
         assertFresh();
 
-        // SVX: perform additional range requests to load scalars
-        // scalars live next to the octree.bin, in /scalars/{scalar_level}.bin
-        for (const scalar of this.registeredExternalScalars) {
-          // Scalar attributes have already been parsed (OctreeLoader) and are
-          // available in node.octreeGeometry.pointAttributes
-          const scalarAttr =
-            node.octreeGeometry.pointAttributes.attributes.find(
-              (a) => a.name === scalar,
-            );
-
-          // Compute scalar byte offsets
-          const bpp_octree = BigInt(this.metadata.bpp); //31n;
-          const bpp_scalar = BigInt(scalarAttr.byteSize); //2n;
-
-          const scalarFirst = (byteOffset / bpp_octree) * bpp_scalar;
-          const scalarByteSize = (byteSize / bpp_octree) * bpp_scalar;
-
-          const scalarLast = scalarFirst + scalarByteSize - 1n;
-          const scalarHeaders = { Range: `bytes=${scalarFirst}-${scalarLast}` };
-
-          // Test
-          // const idx = first/bpp_octree
-          // const scalar_idx = scalarFirst/bpp_scalar
-          // console.debug('IDX Test:', {
-          //   "idx": idx,
-          //   "scalar_idx": scalar_idx,
-          // });
-
-          const scalarUrl = `${this.url.substring(0, lastSlash + 1)}scalars/${scalar}.bin`;
-          const scalarResponse = await fetch(
-            await this.signUrl(scalarUrl, scalarHeaders, this.signal),
-            {
-              headers: scalarHeaders,
-              signal: this.signal,
-              // Invalidated scalars must not be served from the HTTP cache.
-              ...(bustScalars && bustScalars.has(scalar)
-                ? { cache: "reload" }
-                : {}),
-            },
-          );
-          const scalarBuffer = await scalarResponse.arrayBuffer();
-          assertFresh();
-
-          // Add to attributes array for worker
-          scalarBufferAttributes.push({
-            buffer: scalarBuffer,
-            byteSize: scalarAttr.byteSize,
-            name: scalar,
-            attribute: scalarAttr,
-          });
-        }
-        // ---- end SVX scalar loading logic ----
+        const fetched = scalarsToLoad.filter((_, i) => scalarBuffers[i] !== null);
+        scalarBufferAttributes = fetched.map((attr) => ({
+          buffer: scalarBuffers[scalarsToLoad.indexOf(attr)],
+          byteSize: attr.byteSize,
+          name: attr.name,
+          attribute: attr,
+        }));
+        scalarsToLoad = fetched;
       }
 
       if (this.signal) this.signal.throwIfAborted();
@@ -170,71 +206,7 @@ export class NodeLoader {
         }
 
         let geometry = new THREE.BufferGeometry();
-
-
-        for (let property in buffers) {
-          let buffer = buffers[property].buffer;
-
-          if (property === "position") {
-            geometry.setAttribute(
-              "position",
-              new THREE.BufferAttribute(new Float32Array(buffer), 3),
-            );
-          } else if (property === "rgba") {
-            geometry.setAttribute(
-              "rgba",
-              new THREE.BufferAttribute(new Uint8Array(buffer), 4, true),
-            );
-          } else if (property === "NORMAL") {
-            //geometry.setAttribute('rgba', new THREE.BufferAttribute(new Uint8Array(buffer), 4, true));
-            geometry.setAttribute(
-              "normal",
-              new THREE.BufferAttribute(new Float32Array(buffer), 3),
-            );
-          } else if (property === "INDICES") {
-            let bufferAttribute = new THREE.BufferAttribute(
-              new Uint8Array(buffer),
-              4,
-            );
-            bufferAttribute.normalized = true;
-            geometry.setAttribute("indices", bufferAttribute);
-          } 
-          else if (property === "segmentation") {
-            const bufferAttribute = new THREE.BufferAttribute(
-              new Float32Array(buffer),
-              1,
-            );
-
-            let batchAttribute = buffers[property].attribute;
-            bufferAttribute.potree = {
-              offset: buffers[property].offset,
-              scale: buffers[property].scale,
-              preciseBuffer: buffers[property].preciseBuffer,
-              range: batchAttribute.range,
-            };
-
-            if (geometry.getAttribute("segmentation")) {
-              continue;
-            }
-
-            geometry.setAttribute("segmentation", bufferAttribute);
-          } else {
-            const bufferAttribute = new THREE.BufferAttribute(
-              new Float32Array(buffer),
-              1,
-            );
-
-            let batchAttribute = buffers[property].attribute;
-            bufferAttribute.potree = {
-              offset: buffers[property].offset,
-              scale: buffers[property].scale,
-              preciseBuffer: buffers[property].preciseBuffer,
-              range: batchAttribute.range,
-            };
-
-            geometry.setAttribute(property, bufferAttribute);
-          }
-        }
+        addDecodedAttributes(geometry, buffers);
 
         const previousGeometry = replacing && node.loaded ? node.geometry : null;
         node.density = data.density;
@@ -244,12 +216,22 @@ export class NodeLoader {
           if (node.sceneNode) node.sceneNode.geometry = geometry;
           previousGeometry.dispose(); // free the old GPU buffers now
         }
+        node.loadedScalars = new Set(scalarsToLoad.map((a) => a.name));
         node.loaded = true;
         node.loading = false;
         Potree.numNodesLoading--;
       };
 
-      let pointAttributes = node.octreeGeometry.pointAttributes;
+      // Hand the decoder only the attributes present in the buffers.
+      const fullAttributes = node.octreeGeometry.pointAttributes;
+      const lazyNames = new Set(this.registeredExternalScalars);
+      const loadedNames = new Set(scalarsToLoad.map((a) => a.name));
+      let pointAttributes = {
+        attributes: fullAttributes.attributes.filter(
+          (a) => !lazyNames.has(a.name) || loadedNames.has(a.name),
+        ),
+        vectors: fullAttributes.vectors,
+      };
       let scale = node.octreeGeometry.scale;
 
       let box = node.boundingBox;
@@ -293,6 +275,155 @@ export class NodeLoader {
       console.log(`failed to load ${node.name}`);
       console.log(e);
       console.log(`trying again!`);
+    }
+  }
+
+  // SVX: the external scalars (in pointAttributes order) that should be
+  // fetched together with a node's main bin right now.
+  getScalarAttributesToLoad(node) {
+    if (this.metadata.encoding === "BROTLI") return [];
+    const wanted = this.getWantedScalars ? this.getWantedScalars() : null;
+    if (!wanted || wanted.size === 0) return [];
+    const lazyNames = new Set(this.registeredExternalScalars);
+    return node.octreeGeometry.pointAttributes.attributes.filter(
+      (a) => lazyNames.has(a.name) && wanted.has(a.name),
+    );
+  }
+
+  // SVX: range-request one scalar's slice for `node` from scalars/{name}.bin.
+  async fetchScalar(node, scalarAttr, bustScalars) {
+    const { byteOffset, byteSize } = node;
+    const lastSlash = this.url.lastIndexOf("/");
+
+    // Scalar byte offsets follow from the point index in the main bin.
+    const bpp_octree = BigInt(this.metadata.bpp);
+    const bpp_scalar = BigInt(scalarAttr.byteSize);
+    const scalarFirst = (byteOffset / bpp_octree) * bpp_scalar;
+    const scalarLast = scalarFirst + (byteSize / bpp_octree) * bpp_scalar - 1n;
+
+    const headers = { Range: `bytes=${scalarFirst}-${scalarLast}` };
+    const scalarUrl = `${this.url.substring(0, lastSlash + 1)}scalars/${scalarAttr.name}.bin`;
+    const response = await fetch(
+      await this.signUrl(scalarUrl, headers, this.signal),
+      {
+        headers,
+        signal: this.signal,
+        // Invalidated scalars must not be served from the HTTP cache.
+        ...(bustScalars && bustScalars.has(scalarAttr.name)
+          ? { cache: "reload" }
+          : {}),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(
+        `Scalar ${scalarAttr.name} fetch failed: ${response.status} ${response.statusText}`,
+      );
+    }
+    return response.arrayBuffer();
+  }
+
+  /**
+   * SVX: lazy-load external scalars onto an already loaded node. Resolves
+   * once the attributes are on `node.geometry` (or the attempt was dropped).
+   * Failures are reported through `this.onScalarError(names, error)` and
+   * never retried by this call.
+   */
+  async loadScalars(node, names) {
+    if (
+      !node.loaded || !node.geometry || node.loading || node.needsReload ||
+      (this.signal && this.signal.aborted)
+    ) {
+      return;
+    }
+    names = names.filter(
+      (n) => !node.loadedScalars.has(n) && !node.loadingScalars.has(n),
+    );
+    if (names.length === 0) return;
+
+    const fail = (error) => {
+      if (this.onScalarError) this.onScalarError(names, error);
+    };
+
+    if (this.metadata.encoding === "BROTLI") {
+      return fail(new Error("External scalars are not supported with BROTLI encoding"));
+    }
+
+    const attrs = node.octreeGeometry.pointAttributes.attributes.filter((a) =>
+      names.includes(a.name),
+    );
+
+    // Empty node: nothing to fetch.
+    if (node.byteSize === 0n || node.numPoints === 0) {
+      attrs.forEach((a) => node.loadedScalars.add(a.name));
+      return;
+    }
+
+    names.forEach((n) => node.loadingScalars.add(n));
+    this.numScalarLoads++;
+
+    const generation = node.generation;
+    const geometry = node.geometry;
+    const bustScalars = node.scalarCacheBust;
+    const isStale = () =>
+      node.generation !== generation || node.geometry !== geometry;
+
+    try {
+      const buffers = await Promise.all(
+        attrs.map((attr) => this.fetchScalar(node, attr, bustScalars)),
+      );
+      if (isStale()) return;
+      if (this.signal) this.signal.throwIfAborted();
+
+      const workerPath = Potree.scriptPath + "/workers/2.0/DecoderWorker.js";
+      const worker = Potree.workerPool.getWorker(workerPath);
+
+      const decoded = await new Promise((resolve, reject) => {
+        worker.onmessage = (e) => {
+          Potree.workerPool.returnWorker(workerPath, worker);
+          resolve(e.data.attributeBuffers);
+        };
+        worker.onerror = (e) => {
+          Potree.workerPool.returnWorker(workerPath, worker);
+          reject(new Error(e.message || "scalar decoder worker failed"));
+        };
+        const scalarBuffer = {
+          attributes: attrs.map((attr, i) => ({
+            buffer: buffers[i],
+            byteSize: attr.byteSize,
+            name: attr.name,
+            attribute: attr,
+          })),
+        };
+        // Scalar-only decode: no main buffer, no position/rgba/vectors.
+        worker.postMessage(
+          {
+            name: node.name,
+            buffer: new ArrayBuffer(0),
+            pointAttributes: { attributes: attrs, vectors: [] },
+            scalarBuffer,
+            scale: node.octreeGeometry.scale,
+            min: new THREE.Vector3(),
+            max: new THREE.Vector3(),
+            size: new THREE.Vector3(1, 1, 1),
+            offset: node.octreeGeometry.loader.offset,
+            numPoints: node.numPoints,
+          },
+          buffers,
+        );
+      });
+      if (isStale()) return;
+
+      const scalarsOnly = {};
+      for (const attr of attrs) scalarsOnly[attr.name] = decoded[attr.name];
+      addDecodedAttributes(geometry, scalarsOnly);
+      attrs.forEach((a) => node.loadedScalars.add(a.name));
+    } catch (e) {
+      if (this.signal && this.signal.aborted) return;
+      if (e instanceof StaleNodeLoad) return;
+      fail(e);
+    } finally {
+      names.forEach((n) => node.loadingScalars.delete(n));
+      this.numScalarLoads--;
     }
   }
 

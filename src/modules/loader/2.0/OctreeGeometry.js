@@ -35,6 +35,10 @@ export class OctreeGeometryNode{
 		this.needsReload = false;
 		// SVX: scalar names whose next fetch must bypass the HTTP cache.
 		this.scalarCacheBust = null;
+		// SVX: external scalars are lazy-loaded; these track what the current
+		// geometry holds and what is being fetched on top of it.
+		this.loadedScalars = new Set();
+		this.loadingScalars = new Set();
 	}
 
 	isGeometryNode(){
@@ -97,6 +101,7 @@ export class OctreeGeometryNode{
 			this.geometry.dispose();
 			this.geometry = null;
 			this.loaded = false;
+			this.loadedScalars = new Set();
 
 			// this.dispatchEvent( { type: 'dispose' } );
 			for (let i = 0; i < this.oneTimeDisposeHandlers.length; i++) {
@@ -109,4 +114,4 @@ export class OctreeGeometryNode{
 
 };
 
-OctreeGeometryNode.IDCount = 0;
+OctreeGeometryNode.IDCount = 0;
