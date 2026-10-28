@@ -570,6 +570,9 @@ export class OctreeLoader {
     for (const jsonAttribute of jsonAttributes) {
       let { name, description, size, numElements, elementSize, min, max } =
         jsonAttribute;
+      // Bounds are per-element lists; tolerate bare numbers from older metadata.
+      if (typeof min === "number") min = [min];
+      if (typeof max === "number") max = [max];
 
       let type = typenameTypeattributeMap[jsonAttribute.type];
 
