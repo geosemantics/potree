@@ -146,6 +146,8 @@ export class PointCloudOctree extends PointCloudTree {
           console.warn(`Attribute ${attributeName} has no valid range, skipping.`);
           continue;
         }
+        
+        console.log(`Attribute ${attributeName} has valid range:`, attribute.range);
 
         let min =
           attribute.range[0].constructor.name === "Array"
