@@ -140,6 +140,13 @@ export class PointCloudOctree extends PointCloudTree {
           continue;
         }
 
+        // Metadata can declare an attribute without a usable min/max (e.g. empty
+        // bounds after a scalar rewrite); skip it instead of failing the load.
+        if (!attribute.range || attribute.range[0] == null || attribute.range[1] == null) {
+          console.warn(`Attribute ${attributeName} has no valid range, skipping.`);
+          continue;
+        }
+
         let min =
           attribute.range[0].constructor.name === "Array"
             ? attribute.range[0]
